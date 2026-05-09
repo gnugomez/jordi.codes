@@ -33,13 +33,7 @@ func (p menuLeftPanel) render(m AppContext, height int) string {
 type menuWidgetPanel struct{ width int }
 
 func (p menuWidgetPanel) render(m AppContext, height int) string {
-	return RenderMenuWidgetPanel(MenuWidgetPanelParams{
-		Width:      p.width,
-		Height:     height,
-		Now:        m.Now(),
-		Contribs:   m.Contribs(),
-		RemoteAddr: m.RemoteAddr(),
-	})
+	return MenuWidgetPanel{Width: p.width, Height: height}.Render(m)
 }
 
 func renderHeader() string {

@@ -8,29 +8,26 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type MenuWidgetPanelParams struct {
-	Width      int
-	Height     int
-	Now        time.Time
-	Contribs   map[string]int
-	RemoteAddr string
+type MenuWidgetPanel struct {
+	Width  int
+	Height int
 }
 
-func RenderMenuWidgetPanel(params MenuWidgetPanelParams) string {
-	width := params.Width
-	height := params.Height
+func (p MenuWidgetPanel) Render(m AppContext) string {
+	width := p.Width
+	height := p.Height
 	const gap = 2
 	innerWidth := width - gap
 
-	greeting := widgetGreeting(innerWidth, params.Now)
+	greeting := widgetGreeting(innerWidth, m.Now())
 
 	const minSideBySide = 70
 	var actBlock, calBlock string
 	if innerWidth >= minSideBySide {
 		calW := 28
 		actW := innerWidth - calW
-		calC := calendarContent(calW, params.Now)
-		actC := activityContent(actW, params.Contribs, params.Now)
+		calC := calendarContent(calW, m.Now())
+		actC := activityContent(actW, m.Contribs(), m.Now())
 		calH := strings.Count(calC, "\n") + 1
 		actH := strings.Count(actC, "\n") + 1
 		maxH := calH
@@ -44,11 +41,11 @@ func RenderMenuWidgetPanel(params MenuWidgetPanelParams) string {
 		actBlock = midRow
 		calBlock = ""
 	} else {
-		actBlock = widgetActivity(innerWidth, params.Contribs, params.Now)
-		calBlock = widgetCalendar(innerWidth, params.Now)
+		actBlock = widgetActivity(innerWidth, m.Contribs(), m.Now())
+		calBlock = widgetCalendar(innerWidth, m.Now())
 	}
 
-	visitor := widgetVisitor(innerWidth, params.RemoteAddr)
+	visitor := widgetVisitor(innerWidth, m.RemoteAddr())
 
 	blockH := func(s string) int { return strings.Count(s, "\n") + 1 }
 	const sep = 1
