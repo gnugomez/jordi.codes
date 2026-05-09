@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -22,23 +21,13 @@ import (
 	"jordi.codes/tui"
 )
 
-// version is set at build time via -ldflags:
-//
-//	go build -ldflags "-X main.version=v1.0.0"
-var version = "dev"
-
 const (
 	host    = "0.0.0.0"
-	port    = "23234"
+	port    = "22"
 	keyPath = ".ssh/id_ed25519"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Println(version)
-		return
-	}
-
 	site, err := cms.LoadSite(SiteFS, "config/content.yaml")
 	if err != nil {
 		log.Fatal("Failed to load site config", "error", err)
