@@ -1,0 +1,17 @@
+# Binaries
+jordi.codes
+/bin/
+
+# SSH host keys (generated at runtime)
+.ssh/
+
+# Go build cache
+/vendor/
+
+# Environment files
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
