@@ -10,12 +10,14 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	cssh "github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
 	"github.com/charmbracelet/wish/activeterm"
 	bm "github.com/charmbracelet/wish/bubbletea"
 	lm "github.com/charmbracelet/wish/logging"
+	"github.com/muesli/termenv"
 
 	"jordi.codes/cms"
 	"jordi.codes/tui"
@@ -28,6 +30,10 @@ const (
 )
 
 func main() {
+	// stdout is not a terminal when running in Docker, so termenv defaults to
+	// no-color. Force TrueColor so lipgloss styles are always rendered.
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
 	site, err := cms.LoadSite(SiteFS, "config/content.yaml")
 	if err != nil {
 		log.Fatal("Failed to load site config", "error", err)
