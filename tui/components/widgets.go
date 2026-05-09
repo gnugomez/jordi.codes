@@ -61,8 +61,8 @@ func widgetGreeting(outerWidth int, now time.Time) string {
 	}
 
 	bubble := widgetAccentStyle.Render("hey! "+greeting) + "\n" +
-		subtitleStyle.Render("i'm jordi  —  software engineer,") + "\n" +
-		subtitleStyle.Render("coffee addict & terminal dweller.")
+		subtitleStyle.Render("my name is jordi 🫧") + "\n" +
+		subtitleStyle.Render("and my belief is that art can come from code")
 
 	const catMinWidth = 32
 	var row string
