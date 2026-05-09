@@ -1,0 +1,13 @@
+services:
+  jordi-codes:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "22:22"
+    volumes:
+      - ssh-host-key:/app/.ssh
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
+volumes:
+  ssh-host-key:
