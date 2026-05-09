@@ -1,8 +1,8 @@
 package cms
 
 import (
-	"os"
-	"path/filepath"
+	"io/fs"
+	"path"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -10,8 +10,8 @@ import (
 )
 
 // LoadStaticPage reads a single markdown file and returns its raw content.
-func LoadStaticPage(path string) (string, error) {
-	raw, err := os.ReadFile(path)
+func (c *Site) LoadStaticPage(filePath string) (string, error) {
+	raw, err := fs.ReadFile(c.fsys, filePath)
 	if err != nil {
 		return "", err
 	}
@@ -19,10 +19,10 @@ func LoadStaticPage(path string) (string, error) {
 }
 
 // FindContentType looks up a ContentType by name in the given config.
-func FindContentType(cfg *Config, name string) *ContentType {
-	for i := range cfg.ContentTypes {
-		if cfg.ContentTypes[i].Name == name {
-			return &cfg.ContentTypes[i]
+func FindContentType(site *Site, name string) *ContentType {
+	for i := range site.ContentTypes {
+		if site.ContentTypes[i].Name == name {
+			return &site.ContentTypes[i]
 		}
 	}
 	return nil
@@ -30,20 +30,20 @@ func FindContentType(cfg *Config, name string) *ContentType {
 
 // LoadContentItems reads all markdown files in a ContentType's folder and
 // returns them as ContentItem slices. Files are returned in directory order.
-func LoadContentItems(ct ContentType) ([]ContentItem, error) {
-	entries, err := os.ReadDir(ct.Folder)
+func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
+	entries, err := fs.ReadDir(c.fsys, ct.Folder)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []ContentItem
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
 
 		slug := strings.TrimSuffix(entry.Name(), ".md")
-		raw, err := os.ReadFile(filepath.Join(ct.Folder, entry.Name()))
+		raw, err := fs.ReadFile(c.fsys, path.Join(ct.Folder, entry.Name()))
 		if err != nil {
 			continue
 		}
@@ -119,13 +119,13 @@ func extractExcerpt(body string, maxLen int) string {
 }
 
 // LoadStatic reads a single markdown file and returns it as a ContentItem.
-func LoadStatic(path string) (ContentItem, error) {
-	raw, err := os.ReadFile(path)
+func (c *Site) LoadStatic(filePath string) (ContentItem, error) {
+	raw, err := fs.ReadFile(c.fsys, filePath)
 	if err != nil {
 		return ContentItem{}, err
 	}
 	meta, body := parseFrontMatter(string(raw))
-	slug := strings.TrimSuffix(filepath.Base(path), ".md")
+	slug := strings.TrimSuffix(path.Base(filePath), ".md")
 	title := meta["title"]
 	if title == "" {
 		title = firstHeading(body, slug)

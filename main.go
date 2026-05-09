@@ -39,7 +39,7 @@ func main() {
 		return
 	}
 
-	cfg, err := cms.LoadConfig("config/content.yaml")
+	site, err := cms.LoadSite(SiteFS, "config/content.yaml")
 	if err != nil {
 		log.Fatal("Failed to load site config", "error", err)
 	}
@@ -58,7 +58,7 @@ func main() {
 				if host, _, err := net.SplitHostPort(addr); err == nil {
 					addr = host
 				}
-				m := tui.NewModel(cfg, pty.Window.Width, pty.Window.Height, addr)
+				m := tui.NewModel(site, pty.Window.Width, pty.Window.Height, addr)
 				return m, []tea.ProgramOption{tea.WithAltScreen()}
 			}),
 			// Reject connections that do not have an active PTY.

@@ -18,16 +18,16 @@ type ListView struct {
 	err    error
 }
 
-func NewListView(entry cms.MenuEntry, cfg *cms.Config, lo ListLayout) *ListView {
+func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout) *ListView {
 	lv := &ListView{title: entry.Label, layout: lo}
 
-	ct := cms.FindContentType(cfg, entry.ContentType)
+	ct := cms.FindContentType(site, entry.ContentType)
 	if ct == nil {
 		lv.err = fmt.Errorf("content type %q not found in config", entry.ContentType)
 		return lv
 	}
 
-	items, err := cms.LoadContentItems(*ct)
+	items, err := site.LoadContentItems(*ct)
 	if err != nil {
 		lv.err = fmt.Errorf("could not load %s: %w", ct.DisplayName, err)
 		return lv

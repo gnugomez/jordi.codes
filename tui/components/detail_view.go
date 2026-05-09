@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"jordi.codes/cms"
 	"jordi.codes/tui/layout"
 )
 
@@ -31,15 +30,11 @@ func NewDetailView(title, body string, width, height int) *DetailView {
 	}
 }
 
-func NewStaticDetailView(entry cms.MenuEntry, width, height int) *DetailView {
-	raw, err := cms.LoadStaticPage(entry.Path)
-	if err != nil {
-		return &DetailView{
-			title: entry.Label,
-			err:   fmt.Errorf("could not read page: %w", err),
-		}
+func NewErrorDetailView(title string, err error) *DetailView {
+	return &DetailView{
+		title: title,
+		err:   fmt.Errorf("could not read page: %w", err),
 	}
-	return NewDetailView(entry.Label, raw, width, height)
 }
 
 func (d *DetailView) Render(m AppContext) string {

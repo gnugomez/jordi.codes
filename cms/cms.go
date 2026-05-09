@@ -1,16 +1,18 @@
 package cms
 
 import (
-	"os"
+	"io/fs"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Config is the top-level site configuration loaded from content.yaml.
-type Config struct {
+// Site is the top-level site configuration loaded from content.yaml.
+type Site struct {
 	Site         SiteConfig    `yaml:"site"`
 	Menu         []MenuEntry   `yaml:"menu"`
 	ContentTypes []ContentType `yaml:"content_types"`
+
+	fsys fs.FS // embedded at load time; unexported so callers never touch it
 }
 
 // SiteConfig holds global site metadata.
@@ -46,15 +48,17 @@ type ContentItem struct {
 	Excerpt string // first meaningful paragraph, plain text
 }
 
-// LoadConfig reads and parses the YAML site configuration file.
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+// LoadSite reads and parses the YAML site configuration file from the given FS.
+// The FS is stored inside Config so that content loaders need no external FS argument.
+func LoadSite(fsys fs.FS, path string) (*Site, error) {
+	data, err := fs.ReadFile(fsys, path)
 	if err != nil {
 		return nil, err
 	}
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	var site Site
+	if err := yaml.Unmarshal(data, &site); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	site.fsys = fsys
+	return &site, nil
 }

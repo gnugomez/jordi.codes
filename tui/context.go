@@ -8,7 +8,7 @@ import (
 )
 
 type Context struct {
-	cfg    *cms.Config
+	site   *cms.Site
 	width  int
 	height int
 
@@ -35,9 +35,9 @@ func WithListLayout(l components.ListLayout) Option {
 	}
 }
 
-func newContext(cfg *cms.Config, width, height int, remoteAddr string, opts ...Option) Context {
+func newContext(site *cms.Site, width, height int, remoteAddr string, opts ...Option) Context {
 	ctx := Context{
-		cfg:        cfg,
+		site:       site,
 		width:      width,
 		height:     height,
 		now:        time.Now(),
@@ -75,8 +75,8 @@ func (ctx *Context) HelpText() string        { return ctx.helpText }
 
 func (ctx *Context) Width() int                        { return ctx.width }
 func (ctx *Context) Height() int                       { return ctx.height }
-func (ctx *Context) Menu() []cms.MenuEntry             { return ctx.cfg.Menu }
-func (ctx *Context) Subtitle() string                  { return ctx.cfg.Site.Subtitle }
+func (ctx *Context) Menu() []cms.MenuEntry             { return ctx.site.Menu }
+func (ctx *Context) Subtitle() string                  { return ctx.site.Site.Subtitle }
 func (ctx *Context) Now() time.Time                    { return ctx.now }
 func (ctx *Context) Contribs() map[string]int          { return ctx.contribs }
 func (ctx *Context) RemoteAddr() string                { return ctx.remoteAddr }

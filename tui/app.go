@@ -28,12 +28,12 @@ type Model struct {
 }
 
 // NewModel creates the application model for a new SSH session.
-func NewModel(cfg *cms.Config, width, height int, remoteAddr string, opts ...Option) Model {
-	return Model{ctx: newContext(cfg, width, height, remoteAddr, opts...)}
+func NewModel(site *cms.Site, width, height int, remoteAddr string, opts ...Option) Model {
+	return Model{ctx: newContext(site, width, height, remoteAddr, opts...)}
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(doClockTick(), fetchContribs(m.ctx.cfg.Site.GitHub))
+	return tea.Batch(doClockTick(), fetchContribs(m.ctx.site.Site.GitHub))
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -51,11 +51,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case components.OpenContentTypeMsg:
-		m.ctx.pushView(components.NewListView(msg.Entry, m.ctx.cfg, m.ctx.listLayout))
+		m.ctx.pushView(components.NewListView(msg.Entry, m.ctx.site, m.ctx.listLayout))
 		return m, nil
 
 	case components.OpenStaticPageMsg:
-		m.ctx.pushView(components.NewStaticDetailView(msg.Entry, m.ctx.width, m.ctx.height))
+		raw, err := m.ctx.site.LoadStaticPage(msg.Entry.Path)
+		if err != nil {
+			m.ctx.pushView(components.NewErrorDetailView(msg.Entry.Label, err))
+		} else {
+			m.ctx.pushView(components.NewDetailView(msg.Entry.Label, raw, m.ctx.width, m.ctx.height))
+		}
 		return m, nil
 
 	case components.OpenDetailMsg:
