@@ -58,7 +58,7 @@ func main() {
 				if host, _, err := net.SplitHostPort(addr); err == nil {
 					addr = host
 				}
-				m := tui.NewContext(cfg, pty.Window.Width, pty.Window.Height, addr)
+				m := tui.NewModel(cfg, pty.Window.Width, pty.Window.Height, addr)
 				return m, []tea.ProgramOption{tea.WithAltScreen()}
 			}),
 			// Reject connections that do not have an active PTY.

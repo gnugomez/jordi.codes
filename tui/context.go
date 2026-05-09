@@ -35,7 +35,7 @@ func WithListLayout(l components.ListLayout) Option {
 	}
 }
 
-func NewContext(cfg *cms.Config, width, height int, remoteAddr string, opts ...Option) Context {
+func newContext(cfg *cms.Config, width, height int, remoteAddr string, opts ...Option) Context {
 	ctx := Context{
 		cfg:        cfg,
 		width:      width,

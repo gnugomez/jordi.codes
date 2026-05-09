@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"jordi.codes/cms"
 	"jordi.codes/tui/components"
 	"jordi.codes/tui/layout"
 )
@@ -18,73 +19,84 @@ func doClockTick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return clockTickMsg(t) })
 }
 
-// ── bubbletea interface ───────────────────────────────────────────────────────
+// ── bubbletea model ───────────────────────────────────────────────────────────
 
-func (ctx Context) Init() tea.Cmd {
-	return tea.Batch(doClockTick(), fetchContribs(ctx.cfg.Site.GitHub))
+// Model is the bubbletea tea.Model. It owns a Context which implements
+// AppContext and is passed to all components for rendering and updates.
+type Model struct {
+	ctx Context
 }
 
-func (ctx Context) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// NewModel creates the application model for a new SSH session.
+func NewModel(cfg *cms.Config, width, height int, remoteAddr string, opts ...Option) Model {
+	return Model{ctx: newContext(cfg, width, height, remoteAddr, opts...)}
+}
+
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(doClockTick(), fetchContribs(m.ctx.cfg.Site.GitHub))
+}
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		ctx.width = msg.Width
-		ctx.height = msg.Height
+		m.ctx.width = msg.Width
+		m.ctx.height = msg.Height
 
 	case clockTickMsg:
-		ctx.now = time.Time(msg)
-		return ctx, doClockTick()
+		m.ctx.now = time.Time(msg)
+		return m, doClockTick()
 
 	case contribsMsg:
-		ctx.contribs = msg.counts
-		return ctx, nil
+		m.ctx.contribs = msg.counts
+		return m, nil
 
 	case components.OpenContentTypeMsg:
-		ctx.pushView(components.NewListView(msg.Entry, ctx.cfg, ctx.listLayout))
-		return ctx, nil
+		m.ctx.pushView(components.NewListView(msg.Entry, m.ctx.cfg, m.ctx.listLayout))
+		return m, nil
 
 	case components.OpenStaticPageMsg:
-		ctx.pushView(components.NewStaticDetailView(msg.Entry, ctx.width, ctx.height))
-		return ctx, nil
+		m.ctx.pushView(components.NewStaticDetailView(msg.Entry, m.ctx.width, m.ctx.height))
+		return m, nil
 
 	case components.OpenDetailMsg:
-		ctx.pushView(components.NewDetailView(msg.Item.Title, msg.Item.Body, ctx.width, ctx.height))
-		return ctx, nil
+		m.ctx.pushView(components.NewDetailView(msg.Item.Title, msg.Item.Body, m.ctx.width, m.ctx.height))
+		return m, nil
 
 	case components.NavBackMsg:
-		ctx.popView()
-		return ctx, nil
+		m.ctx.popView()
+		return m, nil
 
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return ctx, tea.Quit
+			return m, tea.Quit
 		}
 	}
 
-	if ctx.activeView != nil {
-		cmd := ctx.activeView.Update(&ctx, msg)
-		return ctx, cmd
+	if m.ctx.activeView != nil {
+		cmd := m.ctx.activeView.Update(&m.ctx, msg)
+		return m, cmd
 	}
 
-	return ctx, nil
+	return m, nil
 }
 
-func (ctx Context) View() string {
-	if ctx.width < 40 || ctx.height < 10 {
+func (m Model) View() string {
+	if m.ctx.width < 40 || m.ctx.height < 10 {
 		return "Terminal too small \u2014 please resize to at least 40\u00d710.\n"
 	}
 
-	if ctx.activeView == nil {
+	if m.ctx.activeView == nil {
 		return ""
 	}
 
-	body := ctx.activeView.Render(&ctx)
-	footer := components.Footer{}.Render(&ctx)
+	body := m.ctx.activeView.Render(&m.ctx)
+	footer := components.Footer{}.Render(&m.ctx)
 
-	if _, ok := ctx.activeView.(*components.MenuView); ok {
-		mw := components.MenuWidth(ctx.width)
-		if mw < ctx.width {
-			bodyHeight := ctx.height - layout.FooterHeight
-			return layout.CenterBodyWithinScreen(ctx.width, ctx.height, bodyHeight, body, footer)
+	if _, ok := m.ctx.activeView.(*components.MenuView); ok {
+		mw := components.MenuWidth(m.ctx.width)
+		if mw < m.ctx.width {
+			bodyHeight := m.ctx.height - layout.FooterHeight
+			return layout.CenterBodyWithinScreen(m.ctx.width, m.ctx.height, bodyHeight, body, footer)
 		}
 	}
 
