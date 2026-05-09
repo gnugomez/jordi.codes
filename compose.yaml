@@ -3,7 +3,7 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "22:22"
+      - "2222:22"
     volumes:
       - ssh-host-key:/app/.ssh
     environment:
