@@ -79,7 +79,7 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 		}
 		sshCmd := sshLoginCmd(sshHost, router.SlugFromFilePath(route.Entry.Path))
 		body := fmt.Sprintf(
-			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
+			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-first. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
 			markdownToHTML(item.Body),
@@ -103,7 +103,7 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 				route.Path+"/"+item.Slug, html.EscapeString(item.Title))
 		}
 		body := fmt.Sprintf(
-			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<ul>\n%s</ul>\n<hr>\n<p>This site is SSH-only. Connect to browse:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">ssh %s</code></pre>\n",
+			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<ul>\n%s</ul>\n<hr>\n<p>This site is SSH-first. Connect to browse:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">ssh %s</code></pre>\n",
 			html.EscapeString(route.Title),
 			list.String(),
 			html.EscapeString(sshHost),
@@ -124,7 +124,7 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 			parentPath = "/"
 		}
 		body := fmt.Sprintf(
-			"<p><a href=%q>&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
+			"<p><a href=%q>&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-first. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
 			parentPath,
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
