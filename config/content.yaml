@@ -8,6 +8,10 @@ site:
 # type: content_type  →  lists all markdown files in the content type's folder
 # type: static        →  renders a single markdown file directly
 menu:
+  - label: "Recipes"
+    type: content_type
+    content_type: recipes
+
   - label: "Projects"
     type: content_type
     content_type: projects
@@ -21,3 +25,6 @@ content_types:
   - name: projects
     display_name: Projects
     folder: content/projects
+  - name: recipes
+    display_name: Recipes
+    folder: content/recipes
