@@ -58,7 +58,7 @@ func serveHome(w http.ResponseWriter, site *cms.Site, sshHost string) {
 	}
 
 	body := fmt.Sprintf(
-		"<h1>%s</h1>\n<p>%s</p>\n<ul>\n%s</ul>\n<hr>\n<p>This site is meant to be accessed over SSH: <code>ssh %s</code></p>\n",
+		"<h1>%s</h1>\n<p>%s</p>\n<ul>\n%s</ul>\n<hr>\n<p>This site is meant to be accessed over SSH:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">ssh %s</code></pre>\n",
 		html.EscapeString(site.Site.Title),
 		html.EscapeString(site.Site.Subtitle),
 		links.String(),
@@ -77,7 +77,7 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 		}
 		sshCmd := sshLoginCmd(sshHost, router.SlugFromFilePath(route.Entry.Path))
 		body := fmt.Sprintf(
-			"<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page: <code>%s</code></p>\n",
+			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n",
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
 		)
@@ -100,7 +100,7 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 				route.Path+"/"+item.Slug, html.EscapeString(item.Title))
 		}
 		body := fmt.Sprintf(
-			"<h1>%s</h1>\n<ul>\n%s</ul>\n<hr>\n<p>This site is SSH-only. Connect to browse: <code>ssh %s</code></p>\n",
+			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<ul>\n%s</ul>\n<hr>\n<p>This site is SSH-only. Connect to browse:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">ssh %s</code></pre>\n",
 			html.EscapeString(route.Title),
 			list.String(),
 			html.EscapeString(sshHost),
@@ -116,8 +116,13 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 		// Convert "/projects/jordi-codes" → "projects.jordi-codes" for SSH username
 		sshUser := strings.ReplaceAll(strings.TrimPrefix(route.Path, "/"), "/", ".")
 		sshCmd := sshLoginCmd(sshHost, sshUser)
+		parentPath := route.Path[:strings.LastIndex(route.Path, "/")]
+		if parentPath == "" {
+			parentPath = "/"
+		}
 		body := fmt.Sprintf(
-			"<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page: <code>%s</code></p>\n",
+			"<p><a href=%q>&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n",
+			parentPath,
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
 		)
