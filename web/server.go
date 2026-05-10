@@ -4,11 +4,13 @@
 package web
 
 import (
+	"bytes"
 	"fmt"
 	"html"
 	"net/http"
 	"strings"
 
+	"github.com/yuin/goldmark"
 	"jordi.codes/cms"
 	"jordi.codes/router"
 )
@@ -77,9 +79,10 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 		}
 		sshCmd := sshLoginCmd(sshHost, router.SlugFromFilePath(route.Entry.Path))
 		body := fmt.Sprintf(
-			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n",
+			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
+			markdownToHTML(item.Body),
 		)
 		writePage(w, item.Title+" — "+site.Site.Title, body)
 
@@ -121,13 +124,24 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 			parentPath = "/"
 		}
 		body := fmt.Sprintf(
-			"<p><a href=%q>&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n",
+			"<p><a href=%q>&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-only. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
 			parentPath,
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
+			markdownToHTML(item.Body),
 		)
 		writePage(w, item.Title+" — "+site.Site.Title, body)
 	}
+}
+
+// markdownToHTML converts markdown to an HTML string.
+// On error it falls back to returning the raw markdown in a <pre> block.
+func markdownToHTML(md string) string {
+	var buf bytes.Buffer
+	if err := goldmark.Convert([]byte(md), &buf); err != nil {
+		return "<pre>" + html.EscapeString(md) + "</pre>"
+	}
+	return buf.String()
 }
 
 // sshLoginCmd builds the SSH command string for a given host and username.
