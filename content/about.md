@@ -1,3 +1,7 @@
+---
+title: About
+---
+
 Hi, I'm **Jordi** 
 
 Right now I'm really into pottery, and cooking, but overall I like to express myself through various forms of art, I would point out code, for instance.

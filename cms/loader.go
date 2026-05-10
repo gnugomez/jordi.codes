@@ -1,6 +1,7 @@
 package cms
 
 import (
+	"fmt"
 	"io/fs"
 	"path"
 	"strings"
@@ -57,6 +58,7 @@ func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
 		items = append(items, ContentItem{
 			Title:   title,
 			Slug:    slug,
+			Path:    "/" + ct.Name + "/" + slug,
 			Body:    body,
 			Excerpt: extractExcerpt(body, 200),
 		})
@@ -133,6 +135,31 @@ func (c *Site) LoadStatic(filePath string) (ContentItem, error) {
 	return ContentItem{
 		Title:   title,
 		Slug:    slug,
+		Path:    "/" + slug,
+		Body:    body,
+		Excerpt: extractExcerpt(body, 200),
+	}, nil
+}
+
+// LoadContentItemBySlug loads a single item from a ContentType by its slug.
+func (c *Site) LoadContentItemBySlug(entry MenuEntry, slug string) (ContentItem, error) {
+	ct := FindContentType(c, entry.ContentType)
+	if ct == nil {
+		return ContentItem{}, fmt.Errorf("content type %q not found", entry.ContentType)
+	}
+	raw, err := fs.ReadFile(c.fsys, path.Join(ct.Folder, slug+".md"))
+	if err != nil {
+		return ContentItem{}, err
+	}
+	meta, body := parseFrontMatter(string(raw))
+	title := meta["title"]
+	if title == "" {
+		title = firstHeading(body, slug)
+	}
+	return ContentItem{
+		Title:   title,
+		Slug:    slug,
+		Path:    "/" + ct.Name + "/" + slug,
 		Body:    body,
 		Excerpt: extractExcerpt(body, 200),
 	}, nil

@@ -44,6 +44,7 @@ type ContentType struct {
 type ContentItem struct {
 	Title   string
 	Slug    string
+	Path    string // canonical URL path, e.g. "/projects/jordi-codes"
 	Body    string
 	Excerpt string // first meaningful paragraph, plain text
 }

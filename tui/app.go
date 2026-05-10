@@ -33,7 +33,11 @@ func NewModel(site *cms.Site, width, height int, remoteAddr string, opts ...Opti
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(doClockTick(), fetchContribs(m.ctx.site.Site.GitHub))
+	cmds := []tea.Cmd{doClockTick(), fetchContribs(m.ctx.site.Site.GitHub)}
+	if cmd := m.ctx.initialNavCmd(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -55,11 +59,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case components.OpenStaticPageMsg:
-		raw, err := m.ctx.site.LoadStaticPage(msg.Entry.Path)
+		item, err := m.ctx.site.LoadStatic(msg.Entry.Path)
 		if err != nil {
 			m.ctx.pushView(components.NewErrorDetailView(msg.Entry.Label, err))
 		} else {
-			m.ctx.pushView(components.NewDetailView(msg.Entry.Label, raw, m.ctx.width, m.ctx.height))
+			m.ctx.pushView(components.NewDetailView(item.Title, item.Body, m.ctx.width, m.ctx.height))
 		}
 		return m, nil
 

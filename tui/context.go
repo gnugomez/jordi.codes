@@ -3,7 +3,10 @@ package tui
 import (
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"jordi.codes/cms"
+	"jordi.codes/router"
 	"jordi.codes/tui/components"
 )
 
@@ -23,6 +26,8 @@ type Context struct {
 	viewStack  []components.ViewComponent
 
 	helpText string
+
+	initialPath string // URL path to navigate to on startup (empty = main menu)
 }
 
 type Option func(*Context)
@@ -32,6 +37,16 @@ func WithListLayout(l components.ListLayout) Option {
 		if l != nil {
 			ctx.listLayout = l
 		}
+	}
+}
+
+// WithInitialPath sets a URL path that the TUI will navigate to immediately
+// on startup. The path follows the same routing convention used by the HTTP
+// server: "/about", "/projects", "/projects/jordi-codes".
+// SSH sessions can use dot-notation usernames: "projects.jordi-codes".
+func WithInitialPath(path string) Option {
+	return func(ctx *Context) {
+		ctx.initialPath = path
 	}
 }
 
@@ -66,6 +81,32 @@ func (ctx *Context) popView() {
 		ctx.activeView = ctx.viewStack[n-1]
 		ctx.viewStack = ctx.viewStack[:n-1]
 	}
+}
+
+// initialNavCmd resolves ctx.initialPath to a tea.Cmd that pushes the
+// matching view onto the stack. Returns nil if the path is empty or unknown.
+func (ctx *Context) initialNavCmd() tea.Cmd {
+	if ctx.initialPath == "" {
+		return nil
+	}
+	r := router.New(ctx.site)
+	route, ok := r.Resolve(ctx.initialPath)
+	if !ok {
+		return nil
+	}
+	switch route.Kind {
+	case router.KindStatic:
+		return components.RequestOpenStaticPage(route.Entry)
+	case router.KindList:
+		return components.RequestOpenContentType(route.Entry)
+	case router.KindDetail:
+		item, err := ctx.site.LoadContentItemBySlug(route.Entry, route.Slug)
+		if err != nil {
+			return nil
+		}
+		return components.RequestOpenDetail(item)
+	}
+	return nil
 }
 
 func (ctx *Context) SetHelpText(text string) { ctx.helpText = text }
