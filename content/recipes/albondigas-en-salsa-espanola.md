@@ -2,11 +2,9 @@
 title: Albóndigas en Salsa Española
 ---
 
-## Meatballs in Pea Sauce
-
 This recipe is very close to my heart. I grew up eating this dish — my great-grandmother made it for my grandmother, and she made it for me for many years. I still make it quite often. It's a really good recipe, and I hope you like it as much as I do.
 
-### Ingredients:
+## Ingredients:
 
 - 750g ground beef (you can use half beef and half pork)
 - Oil for frying the meatballs
@@ -21,7 +19,7 @@ This recipe is very close to my heart. I grew up eating this dish — my great-g
 - 100g peas (frozen is fine)
 - 700ml homemade broth (or enough to cover, add more at the end if needed)
 
-### Steps:
+## Steps:
 
 1. In a bowl, mix the meat with salt, garlic powder, pepper, the bread crumb soaked in milk and drained, and a beaten egg (half an egg may be enough). Knead until you get a compact mixture.
 

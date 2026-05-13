@@ -3,23 +3,30 @@ package components
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"jordi.codes/cms"
 	"jordi.codes/tui/layout"
 )
 
+const minSplitWidth = 100
+
 type ListView struct {
-	title  string
-	items  []cms.ContentItem
-	cursor int
-	offset int
-	layout ListLayout
-	err    error
+	title   string
+	items   []cms.ContentItem
+	cursor  int
+	offset  int
+	layout  ListLayout
+	err     error
+	preview viewport.Model
+	prevIdx int // cursor index last rendered in preview
+	prevW   int // width used for last preview render
 }
 
 func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout) *ListView {
-	lv := &ListView{title: entry.Label, layout: lo}
+	lv := &ListView{title: entry.Label, layout: lo, prevIdx: -1}
 
 	ct := cms.FindContentType(site, entry.ContentType)
 	if ct == nil {
@@ -37,22 +44,100 @@ func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout) *ListView {
 	return lv
 }
 
+func (lv *ListView) wideEnough(w int) bool {
+	return w >= minSplitWidth
+}
+
+func (lv *ListView) listWidth(totalWidth int) int {
+	w := totalWidth / 4
+	if w < 30 {
+		w = 30
+	}
+	return w
+}
+
+func (lv *ListView) updatePreview(totalWidth, totalHeight int) {
+	if len(lv.items) == 0 {
+		return
+	}
+	listW := lv.listWidth(totalWidth)
+	previewW := totalWidth - listW - 3 // 3 for border + padding
+	vpH := layout.ViewportHeight(totalHeight)
+
+	if lv.cursor == lv.prevIdx && previewW == lv.prevW {
+		return
+	}
+
+	rendered, err := RenderMarkdown(lv.items[lv.cursor].Body, previewW)
+	if err != nil {
+		rendered = lv.items[lv.cursor].Body
+	}
+
+	lv.preview = viewport.New(previewW, vpH)
+	lv.preview.SetContent(rendered)
+	lv.prevIdx = lv.cursor
+	lv.prevW = previewW
+}
+
 func (lv *ListView) Render(m AppContext) string {
 	if lv.err != nil {
 		m.SetHelpText("esc  back   q  quit")
 		return ErrorView{ErrText: lv.err.Error()}.Render(m)
 	}
 	m.SetHelpText("↑/↓  navigate   enter  open   esc  back   q  quit")
-	return ListBody{
-		Title:  lv.title,
-		Items:  lv.items,
-		Cursor: lv.cursor,
-		Offset: lv.offset,
-		Layout: lv.layout,
-	}.Render(m)
+
+	if !lv.wideEnough(m.Width()) {
+		return ListBody{
+			Title:  lv.title,
+			Items:  lv.items,
+			Cursor: lv.cursor,
+			Offset: lv.offset,
+			Layout: lv.layout,
+		}.Render(m)
+	}
+
+	// Split layout: list on left, preview on right
+	listW := lv.listWidth(m.Width())
+	bodyHeight := m.Height() - layout.HeaderHeight - layout.FooterHeight
+
+	head := SectionHeader{Title: lv.title}.Render(m)
+
+	l := lv.layout
+	if l == nil {
+		l = StackedBoxListLayout{}
+	}
+	listPanel := l.Render(lv.items, lv.cursor, lv.offset, listW, bodyHeight)
+
+	lv.updatePreview(m.Width(), m.Height())
+
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), false, false, false, true).
+		BorderForeground(colorMuted).
+		PaddingLeft(1).
+		Height(bodyHeight)
+
+	previewPanel := borderStyle.Render(lv.preview.View())
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, previewPanel)
+	return lipgloss.JoinVertical(lipgloss.Left, head, body)
 }
 
 func (lv *ListView) Update(m AppContext, msg tea.Msg) tea.Cmd {
+	if lv.wideEnough(m.Width()) {
+		switch msg := msg.(type) {
+		case tea.WindowSizeMsg:
+			lv.prevIdx = -1 // force re-render
+			return nil
+		case tea.KeyMsg:
+			// handle navigation below
+			_ = msg
+		default:
+			var cmd tea.Cmd
+			lv.preview, cmd = lv.preview.Update(msg)
+			return cmd
+		}
+	}
+
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return nil
