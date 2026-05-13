@@ -1,13 +1,17 @@
 site:
   title: "Jordi Gómez Hidalgo's personal site"
-  subtitle: "this is my home, welcome!"
-  author: "Jordi"
+  subtitle: "free as in freedom"
+  author: "Jordi Gómez Hidalgo"
   github: "gnugomez"
 
 # Navigation menu — entries are shown in order on the main screen.
 # type: content_type  →  lists all markdown files in the content type's folder
 # type: static        →  renders a single markdown file directly
 menu:
+  - label: "About"
+    type: static
+    path: content/about.md
+
   - label: "Recipes"
     type: content_type
     content_type: recipes
@@ -15,10 +19,6 @@ menu:
   - label: "Projects"
     type: content_type
     content_type: projects
-
-  - label: "About"
-    type: static
-    path: content/about.md
 
 # Content type definitions — each one maps a name to a folder of .md files.
 content_types:
