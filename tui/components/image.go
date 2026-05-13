@@ -18,7 +18,8 @@ import (
 // as colored half-block characters. maxCols is the maximum available width.
 // requestedWidth overrides the display width in columns; 0 means use the
 // image's natural pixel width (1 pixel = 1 column).
-func renderImage(fsys fs.FS, basePath, imgPath string, maxCols, requestedWidth int) (string, error) {
+// maxRows caps the rendered height in terminal rows (0 = default of 25).
+func renderImage(fsys fs.FS, basePath, imgPath string, maxCols, requestedWidth, maxRows int) (string, error) {
 	resolved := imgPath
 	if !path.IsAbs(imgPath) {
 		resolved = path.Join(basePath, imgPath)
@@ -57,8 +58,10 @@ func renderImage(fsys fs.FS, basePath, imgPath string, maxCols, requestedWidth i
 	if dstH%2 != 0 {
 		dstH++
 	}
-	// Cap height at ~25 rows (50 pixels).
-	const maxRows = 25
+	// Cap height; default is 25 rows (50 pixels).
+	if maxRows <= 0 {
+		maxRows = 25
+	}
 	if dstH > maxRows*2 {
 		dstW = dstW * (maxRows * 2) / dstH
 		dstH = maxRows * 2
