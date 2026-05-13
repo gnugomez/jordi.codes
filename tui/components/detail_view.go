@@ -19,11 +19,13 @@ type DetailView struct {
 	err      error
 }
 
-// NewDetailView creates a detail view for a content item.
-func NewDetailView(item cms.ContentItem, width, height int, fsys fs.FS) *DetailView {
+// NewDetailView creates a detail view for a content item. The viewport is
+// populated immediately with text-only content; images are rendered in the
+// background and delivered via the returned Cmd.
+func NewDetailView(item cms.ContentItem, width, height int, fsys fs.FS) (*DetailView, tea.Cmd) {
 	mc := MarkdownContent{Body: item.Body, FS: fsys, ContentDir: item.ContentDir}
-	vp := mc.Viewport(width, layout.ViewportHeight(height))
-	return &DetailView{item: item, viewport: vp, content: mc}
+	vp := mc.ViewportFast(width, layout.ViewportHeight(height))
+	return &DetailView{item: item, viewport: vp, content: mc}, mc.RenderImagesCmd(width)
 }
 
 // NewErrorDetailView creates a detail view that displays an error.
@@ -51,7 +53,12 @@ func (d *DetailView) Update(m AppContext, msg tea.Msg) tea.Cmd {
 	case tea.WindowSizeMsg:
 		d.viewport.Width = msg.Width
 		d.viewport.Height = layout.ViewportHeight(msg.Height)
-		d.content.RefreshViewport(&d.viewport, msg.Width)
+		if rendered, err := d.content.renderWidthFast(msg.Width); err == nil {
+			d.viewport.SetContent(rendered)
+		}
+		return d.content.RenderImagesCmd(msg.Width)
+	case imagesReadyMsg:
+		d.viewport.SetContent(msg.content)
 		return nil
 	case tea.KeyMsg:
 		switch msg.String() {

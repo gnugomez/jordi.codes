@@ -27,23 +27,30 @@ type ListView struct {
 	fsys    fs.FS
 }
 
-func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout) *ListView {
+// previewImagesReadyMsg is delivered when background image rendering for the
+// preview pane completes. idx identifies the item the render belongs to.
+type previewImagesReadyMsg struct {
+	idx     int
+	content string
+}
+
+func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout, width, height int) (*ListView, tea.Cmd) {
 	lv := &ListView{title: entry.Label, layout: lo, prevIdx: -1, fsys: site.FS()}
 
 	ct := cms.FindContentType(site, entry.ContentType)
 	if ct == nil {
 		lv.err = fmt.Errorf("content type %q not found in config", entry.ContentType)
-		return lv
+		return lv, nil
 	}
 
 	items, err := site.LoadContentItems(*ct)
 	if err != nil {
 		lv.err = fmt.Errorf("could not load %s: %w", ct.DisplayName, err)
-		return lv
+		return lv, nil
 	}
 
 	lv.items = items
-	return lv
+	return lv, lv.updatePreview(width, height)
 }
 
 func (lv *ListView) wideEnough(w int) bool {
@@ -58,22 +65,33 @@ func (lv *ListView) listWidth(totalWidth int) int {
 	return w
 }
 
-func (lv *ListView) updatePreview(totalWidth, totalHeight int) {
+func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
 	if len(lv.items) == 0 {
-		return
+		return nil
 	}
 	listW := lv.listWidth(totalWidth)
 	previewW := totalWidth - listW - 3 // 3 for border + padding
 	vpH := layout.ViewportHeight(totalHeight)
 
 	if lv.cursor == lv.prevIdx && previewW == lv.prevW {
-		return
+		return nil
 	}
 
 	mc := MarkdownContent{Body: lv.items[lv.cursor].Body, FS: lv.fsys, ContentDir: lv.items[lv.cursor].ContentDir}
-	lv.preview = mc.Viewport(previewW, vpH)
+	lv.preview = mc.ViewportFast(previewW, vpH)
 	lv.prevIdx = lv.cursor
 	lv.prevW = previewW
+
+	idx := lv.cursor
+	if imgCmd := mc.RenderImagesCmd(previewW); imgCmd != nil {
+		return func() tea.Msg {
+			if m, ok := imgCmd().(imagesReadyMsg); ok {
+				return previewImagesReadyMsg{idx: idx, content: m.content}
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 func (lv *ListView) Render(m AppContext) string {
@@ -120,10 +138,19 @@ func (lv *ListView) Render(m AppContext) string {
 }
 
 func (lv *ListView) Update(m AppContext, msg tea.Msg) tea.Cmd {
+	return lv.update(m, msg)
+}
+
+func (lv *ListView) update(m AppContext, msg tea.Msg) tea.Cmd {
 	if lv.wideEnough(m.Width()) {
 		switch msg := msg.(type) {
 		case tea.WindowSizeMsg:
 			lv.prevIdx = -1 // force re-render
+			return lv.updatePreview(m.Width(), m.Height())
+		case previewImagesReadyMsg:
+			if msg.idx == lv.cursor {
+				lv.preview.SetContent(msg.content)
+			}
 			return nil
 		case tea.KeyMsg:
 			// handle navigation below
@@ -162,6 +189,9 @@ func (lv *ListView) Update(m AppContext, msg tea.Msg) tea.Cmd {
 		if len(lv.items) > 0 {
 			return RequestOpenDetail(lv.items[lv.cursor])
 		}
+	}
+	if lv.wideEnough(m.Width()) {
+		return lv.updatePreview(m.Width(), m.Height())
 	}
 	return nil
 }

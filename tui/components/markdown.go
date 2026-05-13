@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 )
 
@@ -21,6 +22,9 @@ type MarkdownContent struct {
 	ContentDir string
 }
 
+// imagesReadyMsg is delivered when background image rendering completes.
+type imagesReadyMsg struct{ content string }
+
 // Render implements Renderer. Uses AppContext width for word wrapping.
 func (mc MarkdownContent) Render(m AppContext) string {
 	out, err := mc.renderWidth(m.Width())
@@ -30,10 +34,10 @@ func (mc MarkdownContent) Render(m AppContext) string {
 	return out
 }
 
-// Viewport creates a viewport pre-filled with rendered markdown at the
-// given dimensions. Used by ViewComponents that own scrollable state.
-func (mc MarkdownContent) Viewport(width, height int) viewport.Model {
-	rendered, err := mc.renderWidth(width)
+// ViewportFast creates a viewport immediately using text-only rendering.
+// Images appear as placeholders until RenderImagesCmd completes.
+func (mc MarkdownContent) ViewportFast(width, height int) viewport.Model {
+	rendered, err := mc.renderWidthFast(width)
 	if err != nil {
 		rendered = mc.Body
 	}
@@ -42,10 +46,29 @@ func (mc MarkdownContent) Viewport(width, height int) viewport.Model {
 	return vp
 }
 
-// RefreshViewport re-renders content into an existing viewport after a resize.
-func (mc MarkdownContent) RefreshViewport(vp *viewport.Model, width int) {
-	if rendered, err := mc.renderWidth(width); err == nil {
-		vp.SetContent(rendered)
+// RenderImagesCmd returns a Cmd that decodes and renders images in the
+// background, delivering imagesReadyMsg when done. Returns nil if there
+// are no images to render.
+func (mc MarkdownContent) RenderImagesCmd(width int) tea.Cmd {
+	if mc.FS == nil {
+		return nil
+	}
+	hasImages := false
+	for _, s := range splitAtImages(mc.Body) {
+		if s.isImage {
+			hasImages = true
+			break
+		}
+	}
+	if !hasImages {
+		return nil
+	}
+	return func() tea.Msg {
+		rendered, err := mc.renderWidth(width)
+		if err != nil {
+			return nil
+		}
+		return imagesReadyMsg{content: rendered}
 	}
 }
 
@@ -75,6 +98,41 @@ func (mc MarkdownContent) renderWidth(width int) (string, error) {
 			} else {
 				parts = append(parts, rendered)
 			}
+		} else if strings.TrimSpace(seg.text) != "" {
+			out, err := renderGlamour(seg.text, w)
+			if err != nil {
+				parts = append(parts, seg.text)
+			} else {
+				parts = append(parts, out)
+			}
+		}
+	}
+
+	return strings.Join(parts, ""), nil
+}
+
+// renderWidthFast renders text segments only; images become 🖼 placeholders.
+func (mc MarkdownContent) renderWidthFast(width int) (string, error) {
+	w := width - 6
+	if w < 20 {
+		w = 20
+	}
+
+	if mc.FS == nil {
+		return renderGlamour(mc.Body, w)
+	}
+
+	segments := splitAtImages(mc.Body)
+	var parts []string
+
+	for _, seg := range segments {
+		if seg.isImage {
+			placeholder := "🖼 " + seg.alt
+			if seg.alt == "" {
+				placeholder = "🖼 " + seg.imgPath
+			}
+			out, _ := renderGlamour(placeholder, w)
+			parts = append(parts, out)
 		} else if strings.TrimSpace(seg.text) != "" {
 			out, err := renderGlamour(seg.text, w)
 			if err != nil {

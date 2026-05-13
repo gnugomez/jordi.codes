@@ -55,21 +55,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case components.OpenContentTypeMsg:
-		m.ctx.pushView(components.NewListView(msg.Entry, m.ctx.site, m.ctx.listLayout))
-		return m, nil
+		view, cmd := components.NewListView(msg.Entry, m.ctx.site, m.ctx.listLayout, m.ctx.width, m.ctx.height)
+		m.ctx.pushView(view)
+		return m, cmd
 
 	case components.OpenStaticPageMsg:
 		item, err := m.ctx.site.LoadStatic(msg.Entry.Path)
 		if err != nil {
 			m.ctx.pushView(components.NewErrorDetailView(msg.Entry.Label, err))
-		} else {
-			m.ctx.pushView(components.NewDetailView(item, m.ctx.width, m.ctx.height, m.ctx.site.FS()))
+			return m, nil
 		}
-		return m, nil
+		view, cmd := components.NewDetailView(item, m.ctx.width, m.ctx.height, m.ctx.site.FS())
+		m.ctx.pushView(view)
+		return m, cmd
 
 	case components.OpenDetailMsg:
-		m.ctx.pushView(components.NewDetailView(msg.Item, m.ctx.width, m.ctx.height, m.ctx.site.FS()))
-		return m, nil
+		view, cmd := components.NewDetailView(msg.Item, m.ctx.width, m.ctx.height, m.ctx.site.FS())
+		m.ctx.pushView(view)
+		return m, cmd
 
 	case components.NavBackMsg:
 		m.ctx.popView()
