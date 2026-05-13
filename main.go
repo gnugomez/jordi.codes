@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"jordi.codes/cms"
 	"jordi.codes/router"
 	"jordi.codes/tui"
-	"jordi.codes/web"
 )
 
 const (
@@ -77,7 +77,14 @@ func main() {
 		log.Fatal("Could not create SSH server", "error", err)
 	}
 
-	httpSrv := web.NewServer(site, net.JoinHostPort(host, httpPort))
+	publicFS, err := fs.Sub(PublicFS, "public")
+	if err != nil {
+		log.Fatal("Failed to open public directory", "error", err)
+	}
+	httpSrv := &http.Server{
+		Addr:    net.JoinHostPort(host, httpPort),
+		Handler: http.FileServer(http.FS(publicFS)),
+	}
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)

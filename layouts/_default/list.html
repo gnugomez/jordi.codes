@@ -1,0 +1,12 @@
+{{ define "main" }}
+<p><a href="/">&larr; Back</a></p>
+<h1>{{ .Title }}</h1>
+<ul>
+{{ range .Pages }}
+<li><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+{{ end }}
+</ul>
+<hr>
+<p>This site is SSH-first. Connect to browse:</p>
+<pre><code>ssh {{ .Site.Params.domain }}</code></pre>
+{{ end }}

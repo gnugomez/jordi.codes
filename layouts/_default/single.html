@@ -1,0 +1,10 @@
+{{ define "main" }}
+{{ $path := .RelPermalink | strings.TrimPrefix "/" | strings.TrimSuffix "/" }}
+{{ $user := replace $path "/" "." }}
+<p><a href="{{ .CurrentSection.RelPermalink }}">&larr; Back</a></p>
+<h1>{{ .Title }}</h1>
+<p>This site is SSH-first. Connect to read this page:</p>
+<pre><code>ssh {{ $user }}@{{ .Site.Params.domain }}</code></pre>
+<hr>
+{{ .Content }}
+{{ end }}

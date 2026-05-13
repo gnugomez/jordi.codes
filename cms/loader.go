@@ -42,6 +42,9 @@ func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
+		if entry.Name() == "_index.md" {
+			continue
+		}
 
 		slug := strings.TrimSuffix(entry.Name(), ".md")
 		raw, err := fs.ReadFile(c.fsys, path.Join(ct.Folder, entry.Name()))
@@ -61,7 +64,7 @@ func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
 			Path:       "/" + ct.Name + "/" + slug,
 			Body:       body,
 			Excerpt:    extractExcerpt(body, 200),
-			ContentDir: ct.Folder,
+			ContentDir: path.Join(ct.Folder, slug),
 		})
 	}
 	return items, nil
@@ -110,6 +113,7 @@ func extractExcerpt(body string, maxLen int) string {
 			strings.HasPrefix(line, "```") ||
 			strings.HasPrefix(line, "|") ||
 			strings.HasPrefix(line, "![") ||
+			strings.HasPrefix(line, "{") ||
 			strings.Trim(line, "-=_*~ ") == "" {
 			continue
 		}
@@ -165,6 +169,6 @@ func (c *Site) LoadContentItemBySlug(entry MenuEntry, slug string) (ContentItem,
 		Path:       "/" + ct.Name + "/" + slug,
 		Body:       body,
 		Excerpt:    extractExcerpt(body, 200),
-		ContentDir: ct.Folder,
+		ContentDir: path.Join(ct.Folder, slug),
 	}, nil
 }

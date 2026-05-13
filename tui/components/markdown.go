@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"io/fs"
 	"regexp"
 	"strings"
@@ -10,6 +11,7 @@ import (
 )
 
 var imageRe = regexp.MustCompile(`^!\[([^\]]*)\]\(([^)]+)\)\s*$`)
+var attrRe = regexp.MustCompile(`^\{\s*width\s*=\s*"?(\d+)"?\s*\}\s*$`)
 
 // MarkdownContent is a value-type Renderer that renders markdown body text
 // with inline image support via half-block art.
@@ -62,7 +64,7 @@ func (mc MarkdownContent) renderWidth(width int) (string, error) {
 
 	for _, seg := range segments {
 		if seg.isImage {
-			rendered, err := renderImage(mc.FS, mc.ContentDir, seg.imgPath, w)
+			rendered, err := renderImage(mc.FS, mc.ContentDir, seg.imgPath, w, seg.width)
 			if err != nil {
 				placeholder := "🖼 " + seg.alt
 				if seg.alt == "" {
@@ -102,6 +104,7 @@ type segment struct {
 	text    string
 	imgPath string
 	alt     string
+	width   int // requested display width in columns; 0 = natural size
 }
 
 func splitAtImages(content string) []segment {
@@ -116,17 +119,26 @@ func splitAtImages(content string) []segment {
 		}
 	}
 
-	for _, line := range lines {
-		m := imageRe.FindStringSubmatch(line)
+	for i := 0; i < len(lines); i++ {
+		m := imageRe.FindStringSubmatch(lines[i])
 		if m == nil {
-			textBuf = append(textBuf, line)
+			textBuf = append(textBuf, lines[i])
 			continue
 		}
 		flush()
+		var w int
+		// Look ahead for an attribute line like {width="40"}.
+		if i+1 < len(lines) {
+			if am := attrRe.FindStringSubmatch(lines[i+1]); am != nil {
+				fmt.Sscanf(am[1], "%d", &w)
+				i++ // consume the attribute line
+			}
+		}
 		segments = append(segments, segment{
 			isImage: true,
 			alt:     m[1],
 			imgPath: m[2],
+			width:   w,
 		})
 	}
 	flush()

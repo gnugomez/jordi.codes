@@ -1,0 +1,16 @@
+{{ define "main" }}
+<h1>{{ .Site.Title }}</h1>
+<p>{{ .Site.Params.subtitle }}</p>
+<ul>
+{{ range .RegularPages }}
+<li><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+{{ end }}
+{{ range .Site.Sections }}
+<li><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+{{ end }}
+</ul>
+<hr>
+<p>This site is meant to be accessed over SSH:</p>
+<pre><code>ssh {{ .Site.Params.domain }}</code></pre>
+{{ end }}
+

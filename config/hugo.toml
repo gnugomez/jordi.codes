@@ -1,0 +1,17 @@
+baseURL = "/"
+title = "Jordi Gómez Hidalgo's personal site"
+locale = "en"
+
+[params]
+  subtitle = "free as in freedom"
+  domain = "jordi.codes"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+    [markup.goldmark.parser]
+      wrapStandAloneImageWithinParagraph = false
+      [markup.goldmark.parser.attribute]
+        block = true
+        title = true

@@ -2,6 +2,11 @@
 jordi.codes
 /bin/
 
+# Hugo
+.hugo_build.lock
+/public/
+/resources/
+
 # SSH host keys (generated at runtime)
 .ssh/
 

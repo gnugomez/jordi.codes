@@ -15,9 +15,10 @@ import (
 )
 
 // renderImage loads an image from the filesystem and returns it rendered
-// as colored half-block characters. maxCols is the maximum display width in
-// terminal columns (already accounting for glamour's outer margin).
-func renderImage(fsys fs.FS, basePath, imgPath string, maxCols int) (string, error) {
+// as colored half-block characters. maxCols is the maximum available width.
+// requestedWidth overrides the display width in columns; 0 means use the
+// image's natural pixel width (1 pixel = 1 column).
+func renderImage(fsys fs.FS, basePath, imgPath string, maxCols, requestedWidth int) (string, error) {
 	resolved := imgPath
 	if !path.IsAbs(imgPath) {
 		resolved = path.Join(basePath, imgPath)
@@ -37,17 +38,20 @@ func renderImage(fsys fs.FS, basePath, imgPath string, maxCols int) (string, err
 	bounds := src.Bounds()
 	srcW, srcH := bounds.Dx(), bounds.Dy()
 
-	// Leave some room: use at most 3/4 of available width for the image.
-	imgMaxW := maxCols * 3 / 4
-	if imgMaxW < 20 {
-		imgMaxW = 20
+	// Determine target width: cap to maxCols, then scale down if
+	// requestedWidth (in pixels) is smaller than the image's natural width.
+	dstW := srcW
+	if dstW > maxCols {
+		dstW = maxCols
+	}
+	if requestedWidth > 0 && requestedWidth < srcW {
+		dstW = dstW * requestedWidth / srcW
+	}
+	if dstW < 1 {
+		dstW = 1
 	}
 
-	// Scale to fit within imgMaxW width. Each cell = 1 col wide, 2 px tall.
-	dstW := imgMaxW
-	if srcW < dstW {
-		dstW = srcW
-	}
+	// Scale height proportionally. Each cell = 1 col wide, 2 px tall.
 	dstH := srcH * dstW / srcW
 	// Make height even for half-block pairing.
 	if dstH%2 != 0 {

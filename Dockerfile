@@ -1,11 +1,14 @@
 # ── build stage ──────────────────────────────────────────────────────────────
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache hugo
 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+RUN hugo --config config/hugo.toml --minify
 RUN go build -ldflags "-s -w" -o /bin/jordi-codes .
 
 # ── runtime stage ─────────────────────────────────────────────────────────────
