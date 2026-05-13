@@ -42,11 +42,12 @@ type ContentType struct {
 
 // ContentItem represents a single markdown entry within a ContentType.
 type ContentItem struct {
-	Title   string
-	Slug    string
-	Path    string // canonical URL path, e.g. "/projects/jordi-codes"
-	Body    string
-	Excerpt string // first meaningful paragraph, plain text
+	Title      string
+	Slug       string
+	Path       string // canonical URL path, e.g. "/projects/jordi-codes"
+	Body       string
+	Excerpt    string // first meaningful paragraph, plain text
+	ContentDir string // filesystem directory containing the markdown file
 }
 
 // LoadSite reads and parses the YAML site configuration file from the given FS.
@@ -63,3 +64,6 @@ func LoadSite(fsys fs.FS, path string) (*Site, error) {
 	site.fsys = fsys
 	return &site, nil
 }
+
+// FS returns the filesystem backing the site content.
+func (c *Site) FS() fs.FS { return c.fsys }

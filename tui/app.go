@@ -63,12 +63,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			m.ctx.pushView(components.NewErrorDetailView(msg.Entry.Label, err))
 		} else {
-			m.ctx.pushView(components.NewDetailView(item.Title, item.Body, m.ctx.width, m.ctx.height))
+			m.ctx.pushView(components.NewDetailView(item, m.ctx.width, m.ctx.height, m.ctx.site.FS()))
 		}
 		return m, nil
 
 	case components.OpenDetailMsg:
-		m.ctx.pushView(components.NewDetailView(msg.Item.Title, msg.Item.Body, m.ctx.width, m.ctx.height))
+		m.ctx.pushView(components.NewDetailView(msg.Item, m.ctx.width, m.ctx.height, m.ctx.site.FS()))
 		return m, nil
 
 	case components.NavBackMsg:

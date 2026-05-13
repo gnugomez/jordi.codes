@@ -2,6 +2,8 @@
 title: Albóndigas en Salsa Española
 ---
 
+![](images/albondigas-con-salsa-espanola.jpg)
+
 This recipe is very close to my heart. I grew up eating this dish — my great-grandmother made it for my grandmother, and she made it for me for many years. I still make it quite often. It's a really good recipe, and I hope you like it as much as I do.
 
 ## Ingredients:

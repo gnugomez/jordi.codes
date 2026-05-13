@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"html"
+	"io/fs"
 	"net/http"
 	"strings"
 
 	"github.com/yuin/goldmark"
+	goldhtml "github.com/yuin/goldmark/renderer/html"
 	"jordi.codes/cms"
 	"jordi.codes/router"
 )
@@ -28,6 +30,12 @@ func NewServer(site *cms.Site, addr string) *http.Server {
 			serveHome(w, site, sshHost)
 			return
 		}
+
+		// Serve static assets (images) from the content directory.
+		if serveContentFile(w, req, site) {
+			return
+		}
+
 		route, ok := r.Resolve(req.URL.Path)
 		if !ok {
 			http.NotFound(w, req)
@@ -82,7 +90,7 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 			"<p><a href=\"/\">&larr; Back</a></p>\n<h1>%s</h1>\n<p>This site is SSH-first. Connect to read this page:</p>\n<pre><code style=\"border: 1px solid; padding: 0.5em 1em;\">%s</code></pre>\n<hr>\n%s",
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
-			markdownToHTML(item.Body),
+			markdownToHTML(item.Body, item.ContentDir),
 		)
 		writePage(w, item.Title+" — "+site.Site.Title, body)
 
@@ -128,20 +136,105 @@ func serveRoute(w http.ResponseWriter, req *http.Request, route router.Route, si
 			parentPath,
 			html.EscapeString(item.Title),
 			html.EscapeString(sshCmd),
-			markdownToHTML(item.Body),
+			markdownToHTML(item.Body, item.ContentDir),
 		)
 		writePage(w, item.Title+" — "+site.Site.Title, body)
 	}
 }
 
 // markdownToHTML converts markdown to an HTML string.
-// On error it falls back to returning the raw markdown in a <pre> block.
-func markdownToHTML(md string) string {
+// contentDir is the content directory (e.g. "content/recipes") used to resolve
+// relative image paths. On error it falls back to the raw markdown in a <pre> block.
+func markdownToHTML(md, contentDir string) string {
+	// Rewrite relative image paths so they resolve from the web root.
+	// e.g. ![](images/foo.jpg) in content/recipes → ![](/recipes/images/foo.jpg)
+	md = rewriteImagePaths(md, contentDir)
+
+	gm := goldmark.New(goldmark.WithRendererOptions(goldhtml.WithUnsafe()))
 	var buf bytes.Buffer
-	if err := goldmark.Convert([]byte(md), &buf); err != nil {
+	if err := gm.Convert([]byte(md), &buf); err != nil {
 		return "<pre>" + html.EscapeString(md) + "</pre>"
 	}
-	return buf.String()
+	// Add max-width to all images.
+	result := strings.ReplaceAll(buf.String(), "<img ", "<img style=\"max-width:100%;height:auto\" ")
+	return result
+}
+
+// rewriteImagePaths rewrites relative image paths in markdown so they resolve
+// from the web root. contentDir like "content/recipes" becomes "/recipes".
+func rewriteImagePaths(md, contentDir string) string {
+	if contentDir == "" {
+		return md
+	}
+	webDir := "/" + strings.TrimPrefix(contentDir, "content/")
+
+	lines := strings.Split(md, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "![") {
+			continue
+		}
+		// Find the src in ![alt](src)
+		start := strings.Index(trimmed, "](")
+		if start == -1 {
+			continue
+		}
+		end := strings.Index(trimmed[start+2:], ")")
+		if end == -1 {
+			continue
+		}
+		src := trimmed[start+2 : start+2+end]
+		if strings.HasPrefix(src, "http") || strings.HasPrefix(src, "/") {
+			continue
+		}
+		newSrc := webDir + "/" + src
+		lines[i] = strings.Replace(line, "]("+src+")", "]("+newSrc+")", 1)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// serveContentFile attempts to serve a static file (image, etc.) from the
+// embedded content directory. Returns true if the file was found and served.
+func serveContentFile(w http.ResponseWriter, req *http.Request, site *cms.Site) bool {
+	// Map URL path like /recipes/images/foo.jpg → content/recipes/images/foo.jpg
+	p := strings.TrimPrefix(req.URL.Path, "/")
+	fsPath := "content/" + p
+
+	f, err := site.FS().Open(fsPath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	stat, err := f.(interface{ Stat() (fs.FileInfo, error) }).Stat()
+	if err != nil || stat.IsDir() {
+		return false
+	}
+
+	// Determine content type from extension.
+	switch {
+	case strings.HasSuffix(p, ".jpg"), strings.HasSuffix(p, ".jpeg"):
+		w.Header().Set("Content-Type", "image/jpeg")
+	case strings.HasSuffix(p, ".png"):
+		w.Header().Set("Content-Type", "image/png")
+	case strings.HasSuffix(p, ".gif"):
+		w.Header().Set("Content-Type", "image/gif")
+	case strings.HasSuffix(p, ".webp"):
+		w.Header().Set("Content-Type", "image/webp")
+	case strings.HasSuffix(p, ".svg"):
+		w.Header().Set("Content-Type", "image/svg+xml")
+	default:
+		return false // only serve known image types
+	}
+
+	data, err := fs.ReadFile(site.FS(), fsPath)
+	if err != nil {
+		return false
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(data)
+	return true
 }
 
 // sshLoginCmd builds the SSH command string for a given host and username.

@@ -2,38 +2,35 @@ package components
 
 import (
 	"fmt"
+	"io/fs"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"jordi.codes/cms"
 	"jordi.codes/tui/layout"
 )
 
+// DetailView is a scrollable view of a single content item's markdown body.
 type DetailView struct {
-	title      string
-	rawContent string
-	viewport   viewport.Model
-	err        error
+	item     cms.ContentItem
+	viewport viewport.Model
+	content  MarkdownContent
+	err      error
 }
 
-func NewDetailView(title, body string, width, height int) *DetailView {
-	rendered, err := RenderMarkdown(body, width)
-	if err != nil {
-		rendered = body
-	}
-	vp := viewport.New(width, layout.ViewportHeight(height))
-	vp.SetContent(rendered)
-	return &DetailView{
-		title:      title,
-		rawContent: body,
-		viewport:   vp,
-	}
+// NewDetailView creates a detail view for a content item.
+func NewDetailView(item cms.ContentItem, width, height int, fsys fs.FS) *DetailView {
+	mc := MarkdownContent{Body: item.Body, FS: fsys, ContentDir: item.ContentDir}
+	vp := mc.Viewport(width, layout.ViewportHeight(height))
+	return &DetailView{item: item, viewport: vp, content: mc}
 }
 
+// NewErrorDetailView creates a detail view that displays an error.
 func NewErrorDetailView(title string, err error) *DetailView {
 	return &DetailView{
-		title: title,
-		err:   fmt.Errorf("could not read page: %w", err),
+		item: cms.ContentItem{Title: title},
+		err:  fmt.Errorf("could not read page: %w", err),
 	}
 }
 
@@ -43,8 +40,8 @@ func (d *DetailView) Render(m AppContext) string {
 		return ErrorView{ErrText: d.err.Error()}.Render(m)
 	}
 	m.SetHelpText("↑/↓  scroll   PgUp/PgDn   esc  back   q  quit")
-	return DetailBody{
-		Title:    d.title,
+	return ContentBody{
+		Title:    d.item.Title,
 		Viewport: d.viewport,
 	}.Render(m)
 }
@@ -54,11 +51,7 @@ func (d *DetailView) Update(m AppContext, msg tea.Msg) tea.Cmd {
 	case tea.WindowSizeMsg:
 		d.viewport.Width = msg.Width
 		d.viewport.Height = layout.ViewportHeight(msg.Height)
-		if d.rawContent != "" {
-			if rendered, err := RenderMarkdown(d.rawContent, msg.Width); err == nil {
-				d.viewport.SetContent(rendered)
-			}
-		}
+		d.content.RefreshViewport(&d.viewport, msg.Width)
 		return nil
 	case tea.KeyMsg:
 		switch msg.String() {

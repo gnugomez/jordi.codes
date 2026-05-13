@@ -56,11 +56,12 @@ func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
 		}
 
 		items = append(items, ContentItem{
-			Title:   title,
-			Slug:    slug,
-			Path:    "/" + ct.Name + "/" + slug,
-			Body:    body,
-			Excerpt: extractExcerpt(body, 200),
+			Title:      title,
+			Slug:       slug,
+			Path:       "/" + ct.Name + "/" + slug,
+			Body:       body,
+			Excerpt:    extractExcerpt(body, 200),
+			ContentDir: ct.Folder,
 		})
 	}
 	return items, nil
@@ -108,6 +109,7 @@ func extractExcerpt(body string, maxLen int) string {
 			strings.HasPrefix(line, "#") ||
 			strings.HasPrefix(line, "```") ||
 			strings.HasPrefix(line, "|") ||
+			strings.HasPrefix(line, "![") ||
 			strings.Trim(line, "-=_*~ ") == "" {
 			continue
 		}
@@ -133,11 +135,12 @@ func (c *Site) LoadStatic(filePath string) (ContentItem, error) {
 		title = firstHeading(body, slug)
 	}
 	return ContentItem{
-		Title:   title,
-		Slug:    slug,
-		Path:    "/" + slug,
-		Body:    body,
-		Excerpt: extractExcerpt(body, 200),
+		Title:      title,
+		Slug:       slug,
+		Path:       "/" + slug,
+		Body:       body,
+		Excerpt:    extractExcerpt(body, 200),
+		ContentDir: path.Dir(filePath),
 	}, nil
 }
 
@@ -157,10 +160,11 @@ func (c *Site) LoadContentItemBySlug(entry MenuEntry, slug string) (ContentItem,
 		title = firstHeading(body, slug)
 	}
 	return ContentItem{
-		Title:   title,
-		Slug:    slug,
-		Path:    "/" + ct.Name + "/" + slug,
-		Body:    body,
-		Excerpt: extractExcerpt(body, 200),
+		Title:      title,
+		Slug:       slug,
+		Path:       "/" + ct.Name + "/" + slug,
+		Body:       body,
+		Excerpt:    extractExcerpt(body, 200),
+		ContentDir: ct.Folder,
 	}, nil
 }

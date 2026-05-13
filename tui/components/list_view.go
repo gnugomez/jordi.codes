@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"io/fs"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,10 +24,11 @@ type ListView struct {
 	preview viewport.Model
 	prevIdx int // cursor index last rendered in preview
 	prevW   int // width used for last preview render
+	fsys    fs.FS
 }
 
 func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout) *ListView {
-	lv := &ListView{title: entry.Label, layout: lo, prevIdx: -1}
+	lv := &ListView{title: entry.Label, layout: lo, prevIdx: -1, fsys: site.FS()}
 
 	ct := cms.FindContentType(site, entry.ContentType)
 	if ct == nil {
@@ -68,13 +70,8 @@ func (lv *ListView) updatePreview(totalWidth, totalHeight int) {
 		return
 	}
 
-	rendered, err := RenderMarkdown(lv.items[lv.cursor].Body, previewW)
-	if err != nil {
-		rendered = lv.items[lv.cursor].Body
-	}
-
-	lv.preview = viewport.New(previewW, vpH)
-	lv.preview.SetContent(rendered)
+	mc := MarkdownContent{Body: lv.items[lv.cursor].Body, FS: lv.fsys, ContentDir: lv.items[lv.cursor].ContentDir}
+	lv.preview = mc.Viewport(previewW, vpH)
 	lv.prevIdx = lv.cursor
 	lv.prevW = previewW
 }
