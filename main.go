@@ -65,7 +65,7 @@ func main() {
 				m := tui.NewModel(site, pty.Window.Width, pty.Window.Height, addr,
 					tui.WithInitialPath(initialPath),
 				)
-				return m, []tea.ProgramOption{tea.WithAltScreen()}
+				return m, []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
 			}),
 			// Reject connections that do not have an active PTY.
 			activeterm.Middleware(),
