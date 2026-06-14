@@ -280,6 +280,9 @@ func (lv *ListView) handleWideMessage(m AppContext, msg tea.Msg) (tea.Cmd, bool)
 			lv.preview.SetContent(msg.content)
 		}
 		return nil, true
+	case tea.KeyMsg:
+		// Let navigation keys (up/down/esc/enter) be handled by handleNavigationMessage.
+		return nil, false
 	default:
 		var cmd tea.Cmd
 		lv.preview, cmd = lv.preview.Update(msg)
