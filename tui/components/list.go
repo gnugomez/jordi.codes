@@ -71,6 +71,7 @@ func (l StackedBoxListLayout) Render(items []cms.ContentItem, cursor, offset, wi
 		Bold(true)
 
 	previewStyle := lipgloss.NewStyle().Foreground(colorSubtitle)
+	tagStyle := lipgloss.NewStyle().Foreground(colorClock)
 
 	cards := make([]string, 0, end-offset)
 	for i := offset; i < end; i++ {
@@ -83,8 +84,12 @@ func (l StackedBoxListLayout) Render(items []cms.ContentItem, cursor, offset, wi
 		title := ellipsize(oneLine(item.Title), cardWidth-4)
 		preview := previewText(item)
 		preview = previewStyle.Render(ellipsize(oneLine(preview), cardWidth-4))
+		content := title + "\n" + preview
+		if tags := strings.TrimSpace(projectTags(item)); tags != "" {
+			content += "\n" + tagStyle.Render(ellipsize(oneLine(tags), cardWidth-4))
+		}
 
-		cards = append(cards, style.Render(title+"\n"+preview))
+		cards = append(cards, style.Render(content))
 	}
 
 	stack := strings.Join(cards, "\n")
@@ -124,6 +129,20 @@ func previewText(item cms.ContentItem) string {
 		return "No preview available."
 	}
 	return body
+}
+
+func projectTags(item cms.ContentItem) string {
+	if len(item.Metadata) == 0 {
+		return ""
+	}
+	tags := make([]string, 0, 2)
+	if language := strings.TrimSpace(item.Metadata["language"]); language != "" {
+		tags = append(tags, "#"+language)
+	}
+	if stars := strings.TrimSpace(item.Metadata["stars"]); stars != "" {
+		tags = append(tags, "#stars:"+stars)
+	}
+	return strings.Join(tags, " ")
 }
 
 func oneLine(s string) string {

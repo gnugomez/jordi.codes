@@ -5,6 +5,8 @@ locale = "en"
 [params]
   subtitle = "free as in freedom"
   domain = "jordi.codes"
+  sshUser = "jordi"
+  github = "gnugomez"
 
 [markup]
   [markup.goldmark]
@@ -15,3 +17,7 @@ locale = "en"
       [markup.goldmark.parser.attribute]
         block = true
         title = true
+
+[security]
+  [security.funcs]
+    getenv = ['^HUGO_', '^CI$', '^GITHUB_TOKEN$']

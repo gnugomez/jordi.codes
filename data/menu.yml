@@ -1,0 +1,8 @@
+- label: "About"
+  href: "/about/"
+
+- label: "Recipes"
+  href: "/recipes/"
+
+- label: "Projects"
+  href: "/projects/"

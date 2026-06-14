@@ -1,0 +1,12 @@
+{{- $site := .Page.Site -}}
+{{- $menu := $site.Data.menu -}}
+
+<h2>Menu</h2>
+<ul>
+{{- range $menu }}
+  {{- $path := strings.TrimPrefix "/" .href -}}
+  {{- $path := strings.TrimSuffix "/" $path -}}
+  {{- $sshRoute := replace $path "/" "." -}}
+  <li><a href="{{ .href }}">{{ .label }}</a> <code>ssh {{ $sshRoute }}@{{ $site.Params.domain }}</code></li>
+{{- end }}
+</ul>

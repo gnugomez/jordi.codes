@@ -43,9 +43,13 @@ func FindContentType(site *Site, name string) *ContentType {
 	return site.ContentTypeByName(name)
 }
 
-// LoadContentItems reads all markdown files in a ContentType's folder and
-// returns them as ContentItem slices. Files are returned in directory order.
+// LoadContentItems reads items from the appropriate content source based on the ContentType.
 func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
+	source := c.sourceRegistry.Get(ct.Source)
+	return source.Load(ct)
+}
+
+func (c *Site) loadLocalContentItems(ct ContentType) ([]ContentItem, error) {
 	entries, err := fs.ReadDir(c.fsys, ct.Folder)
 	if err != nil {
 		return nil, err
@@ -82,6 +86,14 @@ func (c *Site) LoadContentItems(ct ContentType) ([]ContentItem, error) {
 		})
 	}
 	return items, nil
+}
+
+func contentTypeSource(source string) string {
+	src := strings.TrimSpace(strings.ToLower(source))
+	if src == "" {
+		return "local"
+	}
+	return src
 }
 
 // parseFrontMatter extracts YAML-like key: value pairs from a leading ---
@@ -168,6 +180,11 @@ func (c *Site) LoadContentItemBySlug(entry MenuEntry, slug string) (ContentItem,
 	if ct == nil {
 		return ContentItem{}, fmt.Errorf("content type %q not found", entry.ContentType)
 	}
+	source := c.sourceRegistry.Get(ct.Source)
+	return source.LoadBySlug(*ct, strings.TrimSpace(slug))
+}
+
+func (c *Site) loadLocalContentItemBySlug(ct ContentType, slug string) (ContentItem, error) {
 	raw, err := fs.ReadFile(c.fsys, path.Join(ct.Folder, slug+".md"))
 	if err != nil {
 		return ContentItem{}, err

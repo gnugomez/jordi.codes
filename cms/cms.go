@@ -12,7 +12,8 @@ type Site struct {
 	Menu         []MenuEntry   `yaml:"menu"`
 	ContentTypes []ContentType `yaml:"content_types"`
 
-	fsys fs.FS // embedded at load time; unexported so callers never touch it
+	fsys           fs.FS           // embedded at load time; unexported so callers never touch it
+	sourceRegistry *sourceRegistry // content source registry for pluggable loaders
 }
 
 // SiteConfig holds global site metadata.
@@ -37,6 +38,8 @@ type MenuEntry struct {
 type ContentType struct {
 	Name        string `yaml:"name"`
 	DisplayName string `yaml:"display_name"`
+	Source      string `yaml:"source"` // "local" (default) or "github_pinned"
+	GitHubUser  string `yaml:"github_user"`
 	Folder      string `yaml:"folder"`
 }
 
@@ -47,6 +50,7 @@ type ContentItem struct {
 	Path       string // canonical URL path, e.g. "/projects/jordi-codes"
 	Body       string
 	Excerpt    string // first meaningful paragraph, plain text
+	Metadata   map[string]string
 	ContentDir string // filesystem directory containing the markdown file
 }
 
@@ -62,6 +66,7 @@ func LoadSite(fsys fs.FS, path string) (*Site, error) {
 		return nil, err
 	}
 	site.fsys = fsys
+	site.sourceRegistry = newSourceRegistry(&site)
 	return &site, nil
 }
 

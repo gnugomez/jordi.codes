@@ -24,7 +24,7 @@ menu:
 content_types:
   - name: projects
     display_name: Projects
-    folder: content/projects
+    source: github_pinned
   - name: recipes
     display_name: Recipes
     folder: content/recipes

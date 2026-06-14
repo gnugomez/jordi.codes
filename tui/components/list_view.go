@@ -3,7 +3,9 @@ package components
 import (
 	"fmt"
 	"io/fs"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,6 +22,8 @@ type ListView struct {
 	cursor  int
 	offset  int
 	layout  ListLayout
+	loading bool
+	spinner spinner.Model
 	err     error
 	preview viewport.Model
 	fsys    fs.FS
@@ -32,8 +36,32 @@ type previewImagesReadyMsg struct {
 	content string
 }
 
+// contentLoadedMsg is delivered when async content loading completes.
+type contentLoadedMsg struct {
+	items []cms.ContentItem
+	err   error
+}
+
 func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout, width, height int) (*ListView, tea.Cmd) {
-	lv := &ListView{title: entry.Label, layout: lo, fsys: site.FS()}
+	ct := site.ContentTypeByName(entry.ContentType)
+	isAsync := ct != nil && strings.EqualFold(strings.TrimSpace(ct.Source), "github_pinned")
+
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(colorPrimary)
+	lv := &ListView{title: entry.Label, layout: lo, fsys: site.FS(), spinner: s}
+
+	if isAsync {
+		lv.loading = true
+		loadCmd := func() tea.Msg {
+			items, err := site.LoadMenuContentItems(entry)
+			if err != nil {
+				return contentLoadedMsg{err: fmt.Errorf("could not load %s: %w", entry.Label, err)}
+			}
+			return contentLoadedMsg{items: items}
+		}
+		return lv, tea.Batch(loadCmd, lv.spinner.Tick)
+	}
 
 	items, err := site.LoadMenuContentItems(entry)
 	if err != nil {
@@ -57,12 +85,18 @@ func (lv *ListView) listWidth(totalWidth int) int {
 	return w
 }
 
-func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
+func (lv *ListView) previewWidth(totalWidth int) int {
 	listW := lv.listWidth(totalWidth)
-	previewW := totalWidth - listW - 3 // 3 for border + padding
+	extra := 1 // vertical separator between list and preview
+	previewW := totalWidth - listW - extra
 	if previewW < 20 {
 		previewW = 20
 	}
+	return previewW
+}
+
+func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
+	previewW := lv.previewWidth(totalWidth)
 	vpH := layout.ViewportHeight(totalHeight)
 
 	if len(lv.items) == 0 || lv.cursor < 0 || lv.cursor >= len(lv.items) {
@@ -85,7 +119,77 @@ func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
 	return nil
 }
 
+func (lv *ListView) renderLoading(m AppContext) string {
+	bodyHeight := m.Height() - layout.HeaderHeight - layout.FooterHeight
+
+	loadingText := lv.spinner.View() + mutedStyle.Render(" Loading…")
+
+	if !lv.wideEnough(m.Width()) {
+		head := SectionHeader{Title: lv.title}.Render(m)
+		body := lipgloss.NewStyle().
+			Width(m.Width()).
+			Height(bodyHeight).
+			Align(lipgloss.Center, lipgloss.Center).
+			Render(loadingText)
+		return lipgloss.JoinVertical(lipgloss.Left, head, body)
+	}
+
+	listW := lv.listWidth(m.Width())
+	previewW := lv.previewWidth(m.Width())
+	head := lv.renderWideHeader(m, listW)
+
+	listPanel := lipgloss.NewStyle().
+		Width(listW).
+		MaxWidth(listW).
+		Height(bodyHeight).
+		MaxHeight(bodyHeight).
+		Render("")
+	previewPanel := lipgloss.NewStyle().
+		PaddingLeft(1).
+		Width(previewW).
+		MaxWidth(previewW).
+		Height(bodyHeight).
+		MaxHeight(bodyHeight).
+		Align(lipgloss.Center, lipgloss.Center).
+		Render(loadingText)
+
+	panels := []string{listPanel, lv.verticalRule(bodyHeight), previewPanel}
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, panels...)
+	return lipgloss.JoinVertical(lipgloss.Left, head, body)
+}
+
+func (lv *ListView) renderWideHeader(m AppContext, listW int) string {
+	titleLine := lipgloss.NewStyle().
+		PaddingLeft(2).
+		Render(mutedStyle.Render("◈  ") + headerStyle.Render(lv.title))
+
+	separator := []rune(strings.Repeat("─", m.Width()))
+
+	firstDivider := listW
+	if firstDivider >= 0 && firstDivider < len(separator) {
+		separator[firstDivider] = '┬'
+	}
+
+	return titleLine + "\n" + mutedStyle.Render(string(separator))
+}
+
+func (lv *ListView) verticalRule(height int) string {
+	if height <= 0 {
+		return ""
+	}
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = "│"
+	}
+	return mutedStyle.Render(strings.Join(lines, "\n"))
+}
+
 func (lv *ListView) Render(m AppContext) string {
+	if lv.loading {
+		m.SetHelpText("loading…")
+		return lv.renderLoading(m)
+	}
 	if lv.err != nil {
 		m.SetHelpText("esc  back   q  quit")
 		return ErrorView{ErrText: lv.err.Error()}.Render(m)
@@ -104,29 +208,51 @@ func (lv *ListView) Render(m AppContext) string {
 
 	// Split layout: list on left, preview on right
 	listW := lv.listWidth(m.Width())
+	previewW := lv.previewWidth(m.Width())
 	bodyHeight := m.Height() - layout.HeaderHeight - layout.FooterHeight
 
-	head := SectionHeader{Title: lv.title}.Render(m)
+	head := lv.renderWideHeader(m, listW)
 
 	l := lv.layout
 	if l == nil {
 		l = StackedBoxListLayout{}
 	}
-	listPanel := l.Render(lv.items, lv.cursor, lv.offset, listW, bodyHeight)
-
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(colorMuted).
+	listPanel := lipgloss.NewStyle().
+		Width(listW).
+		MaxWidth(listW).
+		Height(bodyHeight).
+		MaxHeight(bodyHeight).
+		Render(l.Render(lv.items, lv.cursor, lv.offset, listW, bodyHeight))
+	previewPanel := lipgloss.NewStyle().
 		PaddingLeft(1).
-		Height(bodyHeight)
+		Width(previewW).
+		MaxWidth(previewW).
+		Height(bodyHeight).
+		MaxHeight(bodyHeight).
+		Render(lv.preview.View())
+	panels := []string{listPanel, lv.verticalRule(bodyHeight), previewPanel}
 
-	previewPanel := borderStyle.Render(lv.preview.View())
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, previewPanel)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, panels...)
 	return lipgloss.JoinVertical(lipgloss.Left, head, body)
 }
 
 func (lv *ListView) Update(m AppContext, msg tea.Msg) tea.Cmd {
+	if msg, ok := msg.(contentLoadedMsg); ok {
+		lv.loading = false
+		if msg.err != nil {
+			lv.err = msg.err
+		} else {
+			lv.items = msg.items
+		}
+		return lv.updatePreview(m.Width(), m.Height())
+	}
+
+	if lv.loading {
+		var cmd tea.Cmd
+		lv.spinner, cmd = lv.spinner.Update(msg)
+		return cmd
+	}
+
 	if lv.wideEnough(m.Width()) {
 		if cmd, handled := lv.handleWideMessage(m, msg); handled {
 			return cmd
@@ -145,6 +271,8 @@ func (lv *ListView) Update(m AppContext, msg tea.Msg) tea.Cmd {
 
 func (lv *ListView) handleWideMessage(m AppContext, msg tea.Msg) (tea.Cmd, bool) {
 	switch msg := msg.(type) {
+	case contentLoadedMsg:
+		return nil, false // handled in Update
 	case tea.WindowSizeMsg:
 		return lv.updatePreview(m.Width(), m.Height()), true
 	case previewImagesReadyMsg:
@@ -152,8 +280,6 @@ func (lv *ListView) handleWideMessage(m AppContext, msg tea.Msg) (tea.Cmd, bool)
 			lv.preview.SetContent(msg.content)
 		}
 		return nil, true
-	case tea.KeyMsg:
-		return nil, false
 	default:
 		var cmd tea.Cmd
 		lv.preview, cmd = lv.preview.Update(msg)

@@ -1,0 +1,36 @@
+{{- $user := or (.Get "user") (.Get "github_user") .Site.Params.github -}}
+{{- $limit := int (or (.Get "limit") 6) -}}
+{{- if lt $limit 1 }}{{ $limit = 1 }}{{ end -}}
+{{- if gt $limit 20 }}{{ $limit = 20 }}{{ end -}}
+{{- $token := getenv "GITHUB_TOKEN" -}}
+{{- if not $user -}}
+<p><em>projects shortcode requires user="..."</em></p>
+{{- else if not $token -}}
+<p><em>Set GITHUB_TOKEN to render pinned projects.</em></p>
+{{- else -}}
+  {{- $query := `query($login:String!,$first:Int!){user(login:$login){pinnedItems(first:$first,types:[REPOSITORY]){nodes{... on Repository{name description url}}}}}` -}}
+  {{- $payload := dict "query" $query "variables" (dict "login" $user "first" $limit) -}}
+  {{- $opts := dict
+      "method" "post"
+      "headers" (dict "Authorization" (printf "Bearer %s" $token) "Content-Type" "application/json")
+      "body" ($payload | jsonify)
+    -}}
+  {{- with try (resources.GetRemote "https://api.github.com/graphql" $opts) -}}
+    {{- with .Err -}}
+<p><em>Could not load pinned projects: {{ . }}</em></p>
+    {{- else -}}
+      {{- $data := (.Value.Content | transform.Unmarshal) -}}
+      {{- $nodes := $data.data.user.pinnedItems.nodes -}}
+      {{- if gt (len $nodes) 0 -}}
+<h2>Pinned Projects</h2>
+<ul>
+  {{- range $nodes -}}
+  <li><a href="{{ .url }}">{{ .name }}</a>{{ with .description }} - {{ . }}{{ end }}</li>
+  {{- end -}}
+</ul>
+      {{- else -}}
+<p><em>No pinned projects found.</em></p>
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
