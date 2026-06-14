@@ -10,6 +10,25 @@ import (
 	"golang.org/x/text/language"
 )
 
+// ContentTypeByName looks up a ContentType by name.
+func (c *Site) ContentTypeByName(name string) *ContentType {
+	for i := range c.ContentTypes {
+		if c.ContentTypes[i].Name == name {
+			return &c.ContentTypes[i]
+		}
+	}
+	return nil
+}
+
+// LoadMenuContentItems loads the content list for a menu entry of type content_type.
+func (c *Site) LoadMenuContentItems(entry MenuEntry) ([]ContentItem, error) {
+	ct := c.ContentTypeByName(entry.ContentType)
+	if ct == nil {
+		return nil, fmt.Errorf("content type %q not found", entry.ContentType)
+	}
+	return c.LoadContentItems(*ct)
+}
+
 // LoadStaticPage reads a single markdown file and returns its raw content.
 func (c *Site) LoadStaticPage(filePath string) (string, error) {
 	raw, err := fs.ReadFile(c.fsys, filePath)
@@ -21,12 +40,7 @@ func (c *Site) LoadStaticPage(filePath string) (string, error) {
 
 // FindContentType looks up a ContentType by name in the given config.
 func FindContentType(site *Site, name string) *ContentType {
-	for i := range site.ContentTypes {
-		if site.ContentTypes[i].Name == name {
-			return &site.ContentTypes[i]
-		}
-	}
-	return nil
+	return site.ContentTypeByName(name)
 }
 
 // LoadContentItems reads all markdown files in a ContentType's folder and
@@ -150,7 +164,7 @@ func (c *Site) LoadStatic(filePath string) (ContentItem, error) {
 
 // LoadContentItemBySlug loads a single item from a ContentType by its slug.
 func (c *Site) LoadContentItemBySlug(entry MenuEntry, slug string) (ContentItem, error) {
-	ct := FindContentType(c, entry.ContentType)
+	ct := c.ContentTypeByName(entry.ContentType)
 	if ct == nil {
 		return ContentItem{}, fmt.Errorf("content type %q not found", entry.ContentType)
 	}

@@ -19,10 +19,16 @@ func PlaceCentered(width, height int, content string) string {
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }
 
+// BodyHeight returns the drawable body area (excluding header/footer), clamped to at least 1 row.
+func BodyHeight(totalHeight int) int {
+	h := totalHeight - HeaderHeight - FooterHeight
+	if h < 1 {
+		return 1
+	}
+	return h
+}
+
 // ViewportHeight returns the viewport height given the total terminal height.
 func ViewportHeight(totalHeight int) int {
-	if h := totalHeight - HeaderHeight - FooterHeight; h > 0 {
-		return h
-	}
-	return 1
+	return BodyHeight(totalHeight)
 }

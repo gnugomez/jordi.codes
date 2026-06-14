@@ -25,10 +25,13 @@ const (
 )
 
 func (StackedBoxListLayout) VisibleItems(bodyHeight int) int {
-	if bodyHeight < 1 {
+	if bodyHeight <= 0 {
 		return 1
 	}
 	rowsPerItem := listCardOuterRows + listCardGap
+	if rowsPerItem <= 0 {
+		return 1
+	}
 	if n := (bodyHeight + listCardGap) / rowsPerItem; n > 0 {
 		return n
 	}
@@ -107,7 +110,7 @@ func (lb ListBody) Render(m AppContext) string {
 	if l == nil {
 		l = StackedBoxListLayout{}
 	}
-	bodyHeight := m.Height() - layout.HeaderHeight - layout.FooterHeight
+	bodyHeight := layout.BodyHeight(m.Height())
 	body := l.Render(lb.Items, lb.Cursor, lb.Offset, m.Width(), bodyHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, head, body)
 }

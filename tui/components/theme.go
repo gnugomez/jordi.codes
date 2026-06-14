@@ -17,16 +17,24 @@ const (
 	hexAmber    = "#FBBF24"
 	hexDarkBg   = "#1C1917"
 	hexCodeBg   = "#292524"
+
+	lightHexPrimary  = "#F97316"
+	lightHexAccent   = "#EA580C"
+	lightHexMuted    = "#57534E"
+	lightHexNormal   = "#292524"
+	lightHexClock    = "#9A3412"
+	lightHexSubtitle = "#44403C"
+	lightHexError    = "#B91C1C"
 )
 
 var (
-	colorPrimary  = lipgloss.Color(hexPrimary)
-	colorAccent   = lipgloss.Color(hexAccent)
-	colorMuted    = lipgloss.Color(hexMuted)
-	colorNormal   = lipgloss.Color(hexNormal)
-	colorClock    = lipgloss.Color(hexClock)
-	colorSubtitle = lipgloss.Color(hexSubtitle)
-	colorError    = lipgloss.Color(hexError)
+	colorPrimary  = lipgloss.AdaptiveColor{Light: lightHexPrimary, Dark: hexPrimary}
+	colorAccent   = lipgloss.AdaptiveColor{Light: lightHexAccent, Dark: hexAccent}
+	colorMuted    = lipgloss.AdaptiveColor{Light: lightHexMuted, Dark: hexMuted}
+	colorNormal   = lipgloss.AdaptiveColor{Light: lightHexNormal, Dark: hexNormal}
+	colorClock    = lipgloss.AdaptiveColor{Light: lightHexClock, Dark: hexClock}
+	colorSubtitle = lipgloss.AdaptiveColor{Light: lightHexSubtitle, Dark: hexSubtitle}
+	colorError    = lipgloss.AdaptiveColor{Light: lightHexError, Dark: hexError}
 )
 
 var (
@@ -87,7 +95,6 @@ var amberStyle = ansi.StyleConfig{
 		StylePrimitive: ansi.StylePrimitive{
 			BlockPrefix: "\n",
 			BlockSuffix: "\n",
-			Color:       sp(hexNormal),
 		},
 		Margin: up(2),
 	},

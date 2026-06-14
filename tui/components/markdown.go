@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"io/fs"
+	"log"
 	"regexp"
 	"strings"
 
@@ -73,6 +74,15 @@ func (mc MarkdownContent) RenderImagesCmd(width int) tea.Cmd {
 }
 
 func (mc MarkdownContent) renderWidth(width int) (string, error) {
+	return mc.renderSegments(width, false)
+}
+
+// renderWidthFast renders text segments only; images become 🖼 placeholders.
+func (mc MarkdownContent) renderWidthFast(width int) (string, error) {
+	return mc.renderSegments(width, true)
+}
+
+func (mc MarkdownContent) renderSegments(width int, placeholdersOnly bool) (string, error) {
 	w := width - 6
 	if w < 20 {
 		w = 20
@@ -87,6 +97,11 @@ func (mc MarkdownContent) renderWidth(width int) (string, error) {
 
 	for _, seg := range segments {
 		if seg.isImage {
+			if placeholdersOnly {
+				parts = append(parts, renderPlaceholder(w, seg, nil))
+				continue
+			}
+
 			effectiveCols := w
 			if seg.widthPct > 0 {
 				// w = width-6 accounts for glamour text margins, but the 2-char pad
@@ -97,27 +112,25 @@ func (mc MarkdownContent) renderWidth(width int) (string, error) {
 					effectiveCols = 1
 				}
 			}
+
 			pixelW := seg.width
 			if seg.widthPct > 0 {
 				pixelW = 0 // percentage controls the column cap; skip pixel scaling
 			}
+
 			// When an explicit size is requested, use a large row cap so the
 			// height constraint never reduces the width below what was asked for.
 			imgMaxRows := 0
 			if seg.widthPct > 0 || seg.width > 0 {
 				imgMaxRows = 200
 			}
+
 			rendered, err := renderImage(mc.FS, mc.ContentDir, seg.imgPath, effectiveCols, pixelW, imgMaxRows)
 			if err != nil {
-				placeholder := "🖼 " + seg.alt
-				if seg.alt == "" {
-					placeholder = "🖼 " + seg.imgPath
-				}
-				out, _ := renderGlamour(placeholder, w)
-				parts = append(parts, out)
-			} else {
-				parts = append(parts, rendered)
+				parts = append(parts, renderPlaceholder(w, seg, err))
+				continue
 			}
+			parts = append(parts, rendered)
 		} else if strings.TrimSpace(seg.text) != "" {
 			out, err := renderGlamour(seg.text, w)
 			if err != nil {
@@ -131,39 +144,21 @@ func (mc MarkdownContent) renderWidth(width int) (string, error) {
 	return strings.Join(parts, ""), nil
 }
 
-// renderWidthFast renders text segments only; images become 🖼 placeholders.
-func (mc MarkdownContent) renderWidthFast(width int) (string, error) {
-	w := width - 6
-	if w < 20 {
-		w = 20
+func renderPlaceholder(wordWrap int, seg segment, renderErr error) string {
+	label := seg.alt
+	if label == "" {
+		label = seg.imgPath
 	}
-
-	if mc.FS == nil {
-		return renderGlamour(mc.Body, w)
+	placeholder := "🖼 " + label
+	if renderErr != nil {
+		log.Printf("image render fallback for %q: %v", seg.imgPath, renderErr)
+		placeholder += " (image load failed)"
 	}
-
-	segments := splitAtImages(mc.Body)
-	var parts []string
-
-	for _, seg := range segments {
-		if seg.isImage {
-			placeholder := "🖼 " + seg.alt
-			if seg.alt == "" {
-				placeholder = "🖼 " + seg.imgPath
-			}
-			out, _ := renderGlamour(placeholder, w)
-			parts = append(parts, out)
-		} else if strings.TrimSpace(seg.text) != "" {
-			out, err := renderGlamour(seg.text, w)
-			if err != nil {
-				parts = append(parts, seg.text)
-			} else {
-				parts = append(parts, out)
-			}
-		}
+	out, err := renderGlamour(placeholder, wordWrap)
+	if err != nil {
+		return placeholder + "\n"
 	}
-
-	return strings.Join(parts, ""), nil
+	return out
 }
 
 func renderGlamour(content string, wordWrap int) (string, error) {

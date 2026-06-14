@@ -22,8 +22,6 @@ type ListView struct {
 	layout  ListLayout
 	err     error
 	preview viewport.Model
-	prevIdx int // cursor index last rendered in preview
-	prevW   int // width used for last preview render
 	fsys    fs.FS
 }
 
@@ -35,17 +33,11 @@ type previewImagesReadyMsg struct {
 }
 
 func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout, width, height int) (*ListView, tea.Cmd) {
-	lv := &ListView{title: entry.Label, layout: lo, prevIdx: -1, fsys: site.FS()}
+	lv := &ListView{title: entry.Label, layout: lo, fsys: site.FS()}
 
-	ct := cms.FindContentType(site, entry.ContentType)
-	if ct == nil {
-		lv.err = fmt.Errorf("content type %q not found in config", entry.ContentType)
-		return lv, nil
-	}
-
-	items, err := site.LoadContentItems(*ct)
+	items, err := site.LoadMenuContentItems(entry)
 	if err != nil {
-		lv.err = fmt.Errorf("could not load %s: %w", ct.DisplayName, err)
+		lv.err = fmt.Errorf("could not load %s: %w", entry.Label, err)
 		return lv, nil
 	}
 
@@ -66,21 +58,20 @@ func (lv *ListView) listWidth(totalWidth int) int {
 }
 
 func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
-	if len(lv.items) == 0 {
-		return nil
-	}
 	listW := lv.listWidth(totalWidth)
 	previewW := totalWidth - listW - 3 // 3 for border + padding
+	if previewW < 20 {
+		previewW = 20
+	}
 	vpH := layout.ViewportHeight(totalHeight)
 
-	if lv.cursor == lv.prevIdx && previewW == lv.prevW {
+	if len(lv.items) == 0 || lv.cursor < 0 || lv.cursor >= len(lv.items) {
+		lv.preview = viewport.New(previewW, vpH)
 		return nil
 	}
 
 	mc := MarkdownContent{Body: lv.items[lv.cursor].Body, FS: lv.fsys, ContentDir: lv.items[lv.cursor].ContentDir}
 	lv.preview = mc.ViewportFast(previewW, vpH)
-	lv.prevIdx = lv.cursor
-	lv.prevW = previewW
 
 	idx := lv.cursor
 	if imgCmd := mc.RenderImagesCmd(previewW); imgCmd != nil {
@@ -123,8 +114,6 @@ func (lv *ListView) Render(m AppContext) string {
 	}
 	listPanel := l.Render(lv.items, lv.cursor, lv.offset, listW, bodyHeight)
 
-	lv.updatePreview(m.Width(), m.Height())
-
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(colorMuted).
@@ -138,42 +127,56 @@ func (lv *ListView) Render(m AppContext) string {
 }
 
 func (lv *ListView) Update(m AppContext, msg tea.Msg) tea.Cmd {
-	return lv.update(m, msg)
-}
-
-func (lv *ListView) update(m AppContext, msg tea.Msg) tea.Cmd {
 	if lv.wideEnough(m.Width()) {
-		switch msg := msg.(type) {
-		case tea.WindowSizeMsg:
-			lv.prevIdx = -1 // force re-render
-			return lv.updatePreview(m.Width(), m.Height())
-		case previewImagesReadyMsg:
-			if msg.idx == lv.cursor {
-				lv.preview.SetContent(msg.content)
-			}
-			return nil
-		case tea.KeyMsg:
-			// handle navigation below
-			_ = msg
-		default:
-			var cmd tea.Cmd
-			lv.preview, cmd = lv.preview.Update(msg)
+		if cmd, handled := lv.handleWideMessage(m, msg); handled {
 			return cmd
 		}
 	}
 
+	cmd, rerenderPreview := lv.handleNavigationMessage(m, msg)
+	if cmd != nil {
+		return cmd
+	}
+	if rerenderPreview && lv.wideEnough(m.Width()) {
+		return lv.updatePreview(m.Width(), m.Height())
+	}
+	return nil
+}
+
+func (lv *ListView) handleWideMessage(m AppContext, msg tea.Msg) (tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		return lv.updatePreview(m.Width(), m.Height()), true
+	case previewImagesReadyMsg:
+		if msg.idx == lv.cursor {
+			lv.preview.SetContent(msg.content)
+		}
+		return nil, true
+	case tea.KeyMsg:
+		return nil, false
+	default:
+		var cmd tea.Cmd
+		lv.preview, cmd = lv.preview.Update(msg)
+		return cmd, true
+	}
+}
+
+func (lv *ListView) handleNavigationMessage(m AppContext, msg tea.Msg) (tea.Cmd, bool) {
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if !ok {
-		return nil
+		return nil, false
 	}
+
+	moved := false
 	switch keyMsg.String() {
 	case "q":
-		return tea.Quit
+		return tea.Quit, false
 	case "esc":
-		return RequestNavBack()
+		return RequestNavBack(), false
 	case "up", "k":
 		if lv.cursor > 0 {
 			lv.cursor--
+			moved = true
 			if lv.cursor < lv.offset {
 				lv.offset = lv.cursor
 			}
@@ -181,23 +184,22 @@ func (lv *ListView) update(m AppContext, msg tea.Msg) tea.Cmd {
 	case "down", "j":
 		if lv.cursor < len(lv.items)-1 {
 			lv.cursor++
+			moved = true
 			if vis := lv.visibleItems(m.Height()); lv.cursor >= lv.offset+vis {
 				lv.offset = lv.cursor - vis + 1
 			}
 		}
 	case "enter", " ":
 		if len(lv.items) > 0 {
-			return RequestOpenDetail(lv.items[lv.cursor])
+			return RequestOpenDetail(lv.items[lv.cursor]), false
 		}
 	}
-	if lv.wideEnough(m.Width()) {
-		return lv.updatePreview(m.Width(), m.Height())
-	}
-	return nil
+
+	return nil, moved
 }
 
 func (lv *ListView) visibleItems(height int) int {
-	bodyHeight := height - layout.HeaderHeight - layout.FooterHeight
+	bodyHeight := layout.BodyHeight(height)
 	if lv.layout == nil {
 		return 1
 	}

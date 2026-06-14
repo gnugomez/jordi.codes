@@ -77,7 +77,7 @@ func (r *Router) Resolve(urlPath string) (Route, bool) {
 			}
 
 		case "content_type":
-			ct := cms.FindContentType(r.site, entry.ContentType)
+			ct := r.site.ContentTypeByName(entry.ContentType)
 			if ct == nil || first != ct.Name {
 				continue
 			}
