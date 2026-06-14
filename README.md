@@ -5,7 +5,7 @@ A personal site served over SSH, built with Go and the [Charmbracelet](https://c
 ## Visit
 
 ```sh
-ssh -p 2222 jordi.codes
+ssh jordi.codes
 ```
 
 ## Run locally
