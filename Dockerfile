@@ -21,6 +21,9 @@ RUN apk add --no-cache openssh-keygen ca-certificates
 WORKDIR /app
 COPY --from=builder /bin/jordi-codes .
 
+# Default to dark theme for SSH sessions; users can override with JORDI_THEME=light
+ENV JORDI_THEME=dark
+
 # The host key lives here. Mount a persistent volume to this path so the key
 # survives container restarts and is shared across instances.
 VOLUME ["/app/.ssh"]
