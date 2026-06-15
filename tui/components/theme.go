@@ -34,13 +34,13 @@ const (
 )
 
 var (
-	colorPrimary  = lipgloss.AdaptiveColor{Light: lightHexPrimary, Dark: hexPrimary}
-	colorAccent   = lipgloss.AdaptiveColor{Light: lightHexAccent, Dark: hexAccent}
-	colorMuted    = lipgloss.AdaptiveColor{Light: lightHexMuted, Dark: hexMuted}
-	colorNormal   = lipgloss.AdaptiveColor{Light: lightHexNormal, Dark: hexNormal}
-	colorClock    = lipgloss.AdaptiveColor{Light: lightHexClock, Dark: hexClock}
-	colorSubtitle = lipgloss.AdaptiveColor{Light: lightHexSubtitle, Dark: hexSubtitle}
-	colorError    = lipgloss.AdaptiveColor{Light: lightHexError, Dark: hexError}
+	colorPrimary  = themedColor(lightHexPrimary, hexPrimary)
+	colorAccent   = themedColor(lightHexAccent, hexAccent)
+	colorMuted    = themedColor(lightHexMuted, hexMuted)
+	colorNormal   = themedColor(lightHexNormal, hexNormal)
+	colorClock    = themedColor(lightHexClock, hexClock)
+	colorSubtitle = themedColor(lightHexSubtitle, hexSubtitle)
+	colorError    = themedColor(lightHexError, hexError)
 )
 
 var (
@@ -226,13 +226,13 @@ func buildAmberStyle(p markdownPalette) ansi.StyleConfig {
 }
 
 func init() {
-	if forcedDark, ok := forcedDarkMode(); ok {
-		lipgloss.SetHasDarkBackground(forcedDark)
-	}
+	lipgloss.SetHasDarkBackground(themeIsDark())
 }
 
 func forcedDarkMode() (bool, bool) {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("JORDI_THEME"))) {
+	theme := strings.TrimSpace(os.Getenv("TUI_THEME"))
+
+	switch strings.ToLower(theme) {
 	case "dark":
 		return true, true
 	case "light":
@@ -242,15 +242,26 @@ func forcedDarkMode() (bool, bool) {
 	}
 }
 
-func AmberStyle() ansi.StyleConfig {
+func themeIsDark() bool {
 	if forcedDark, ok := forcedDarkMode(); ok {
-		if forcedDark {
-			return buildAmberStyle(darkMarkdownPalette)
-		}
-		return buildAmberStyle(lightMarkdownPalette)
+		return forcedDark
 	}
 
-	if lipgloss.HasDarkBackground() {
+	// In hosted SSH mode, background auto-detection is frequently unreliable.
+	// Default to the dark palette unless explicitly overridden.
+	return true
+}
+
+func themedColor(light, dark string) lipgloss.Color {
+	if themeIsDark() {
+		return lipgloss.Color(dark)
+	}
+
+	return lipgloss.Color(light)
+}
+
+func AmberStyle() ansi.StyleConfig {
+	if themeIsDark() {
 		return buildAmberStyle(darkMarkdownPalette)
 	}
 
