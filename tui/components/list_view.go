@@ -27,6 +27,7 @@ type ListView struct {
 	err     error
 	preview viewport.Model
 	fsys    fs.FS
+	dark    bool
 }
 
 // previewImagesReadyMsg is delivered when background image rendering for the
@@ -42,14 +43,14 @@ type contentLoadedMsg struct {
 	err   error
 }
 
-func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout, width, height int) (*ListView, tea.Cmd) {
+func NewListView(entry cms.MenuEntry, site *cms.Site, lo ListLayout, width, height int, t *Theme) (*ListView, tea.Cmd) {
 	ct := site.ContentTypeByName(entry.ContentType)
 	isAsync := ct != nil && strings.EqualFold(strings.TrimSpace(ct.Source), "github_pinned")
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(colorPrimary)
-	lv := &ListView{title: entry.Label, layout: lo, fsys: site.FS(), spinner: s}
+	s.Style = t.NewStyle().Foreground(t.Primary)
+	lv := &ListView{title: entry.Label, layout: lo, fsys: site.FS(), spinner: s, dark: t.Dark()}
 
 	if isAsync {
 		lv.loading = true
@@ -104,7 +105,7 @@ func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
 		return nil
 	}
 
-	mc := MarkdownContent{Body: lv.items[lv.cursor].Body, FS: lv.fsys, ContentDir: lv.items[lv.cursor].ContentDir}
+	mc := MarkdownContent{Body: lv.items[lv.cursor].Body, FS: lv.fsys, ContentDir: lv.items[lv.cursor].ContentDir, Dark: lv.dark}
 	lv.preview = mc.ViewportFast(previewW, vpH)
 
 	idx := lv.cursor
@@ -120,13 +121,14 @@ func (lv *ListView) updatePreview(totalWidth, totalHeight int) tea.Cmd {
 }
 
 func (lv *ListView) renderLoading(m AppContext) string {
+	t := m.Theme()
 	bodyHeight := m.Height() - layout.HeaderHeight - layout.FooterHeight
 
-	loadingText := lv.spinner.View() + mutedStyle.Render(" Loading…")
+	loadingText := lv.spinner.View() + t.MutedStyle.Render(" Loading…")
 
 	if !lv.wideEnough(m.Width()) {
 		head := SectionHeader{Title: lv.title}.Render(m)
-		body := lipgloss.NewStyle().
+		body := t.NewStyle().
 			Width(m.Width()).
 			Height(bodyHeight).
 			Align(lipgloss.Center, lipgloss.Center).
@@ -138,13 +140,13 @@ func (lv *ListView) renderLoading(m AppContext) string {
 	previewW := lv.previewWidth(m.Width())
 	head := lv.renderWideHeader(m, listW)
 
-	listPanel := lipgloss.NewStyle().
+	listPanel := t.NewStyle().
 		Width(listW).
 		MaxWidth(listW).
 		Height(bodyHeight).
 		MaxHeight(bodyHeight).
 		Render("")
-	previewPanel := lipgloss.NewStyle().
+	previewPanel := t.NewStyle().
 		PaddingLeft(1).
 		Width(previewW).
 		MaxWidth(previewW).
@@ -153,16 +155,17 @@ func (lv *ListView) renderLoading(m AppContext) string {
 		Align(lipgloss.Center, lipgloss.Center).
 		Render(loadingText)
 
-	panels := []string{listPanel, lv.verticalRule(bodyHeight), previewPanel}
+	panels := []string{listPanel, lv.verticalRule(t, bodyHeight), previewPanel}
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, panels...)
 	return lipgloss.JoinVertical(lipgloss.Left, head, body)
 }
 
 func (lv *ListView) renderWideHeader(m AppContext, listW int) string {
-	titleLine := lipgloss.NewStyle().
+	t := m.Theme()
+	titleLine := t.NewStyle().
 		PaddingLeft(2).
-		Render(mutedStyle.Render("◈  ") + headerStyle.Render(lv.title))
+		Render(t.MutedStyle.Render("◈  ") + t.HeaderStyle.Render(lv.title))
 
 	separator := []rune(strings.Repeat("─", m.Width()))
 
@@ -171,10 +174,10 @@ func (lv *ListView) renderWideHeader(m AppContext, listW int) string {
 		separator[firstDivider] = '┬'
 	}
 
-	return titleLine + "\n" + mutedStyle.Render(string(separator))
+	return titleLine + "\n" + t.MutedStyle.Render(string(separator))
 }
 
-func (lv *ListView) verticalRule(height int) string {
+func (lv *ListView) verticalRule(t *Theme, height int) string {
 	if height <= 0 {
 		return ""
 	}
@@ -182,7 +185,7 @@ func (lv *ListView) verticalRule(height int) string {
 	for i := range lines {
 		lines[i] = "│"
 	}
-	return mutedStyle.Render(strings.Join(lines, "\n"))
+	return t.MutedStyle.Render(strings.Join(lines, "\n"))
 }
 
 func (lv *ListView) Render(m AppContext) string {
@@ -207,6 +210,7 @@ func (lv *ListView) Render(m AppContext) string {
 	}
 
 	// Split layout: list on left, preview on right
+	t := m.Theme()
 	listW := lv.listWidth(m.Width())
 	previewW := lv.previewWidth(m.Width())
 	bodyHeight := m.Height() - layout.HeaderHeight - layout.FooterHeight
@@ -217,20 +221,20 @@ func (lv *ListView) Render(m AppContext) string {
 	if l == nil {
 		l = StackedBoxListLayout{}
 	}
-	listPanel := lipgloss.NewStyle().
+	listPanel := t.NewStyle().
 		Width(listW).
 		MaxWidth(listW).
 		Height(bodyHeight).
 		MaxHeight(bodyHeight).
-		Render(l.Render(lv.items, lv.cursor, lv.offset, listW, bodyHeight))
-	previewPanel := lipgloss.NewStyle().
+		Render(l.Render(t, lv.items, lv.cursor, lv.offset, listW, bodyHeight))
+	previewPanel := t.NewStyle().
 		PaddingLeft(1).
 		Width(previewW).
 		MaxWidth(previewW).
 		Height(bodyHeight).
 		MaxHeight(bodyHeight).
 		Render(lv.preview.View())
-	panels := []string{listPanel, lv.verticalRule(bodyHeight), previewPanel}
+	panels := []string{listPanel, lv.verticalRule(t, bodyHeight), previewPanel}
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, panels...)
 	return lipgloss.JoinVertical(lipgloss.Left, head, body)

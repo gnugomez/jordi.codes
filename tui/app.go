@@ -55,7 +55,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case components.OpenContentTypeMsg:
-		view, cmd := components.NewListView(msg.Entry, m.ctx.site, m.ctx.listLayout, m.ctx.width, m.ctx.height)
+		view, cmd := components.NewListView(msg.Entry, m.ctx.site, m.ctx.listLayout, m.ctx.width, m.ctx.height, m.ctx.theme)
 		m.ctx.pushView(view)
 		return m, cmd
 
@@ -65,12 +65,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ctx.pushView(components.NewErrorDetailView(msg.Entry.Label, err))
 			return m, nil
 		}
-		view, cmd := components.NewDetailView(item, m.ctx.width, m.ctx.height, m.ctx.site.FS())
+		view, cmd := components.NewDetailView(item, m.ctx.width, m.ctx.height, m.ctx.site.FS(), m.ctx.theme.Dark())
 		m.ctx.pushView(view)
 		return m, cmd
 
 	case components.OpenDetailMsg:
-		view, cmd := components.NewDetailView(msg.Item, m.ctx.width, m.ctx.height, m.ctx.site.FS())
+		view, cmd := components.NewDetailView(msg.Item, m.ctx.width, m.ctx.height, m.ctx.site.FS(), m.ctx.theme.Dark())
 		m.ctx.pushView(view)
 		return m, cmd
 

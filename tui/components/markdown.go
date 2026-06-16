@@ -28,6 +28,7 @@ type MarkdownContent struct {
 	Body       string
 	FS         fs.FS
 	ContentDir string
+	Dark       bool
 }
 
 // imagesReadyMsg is delivered when background image rendering completes.
@@ -102,7 +103,7 @@ func (mc MarkdownContent) renderSegments(width int, placeholdersOnly bool, ctx A
 	}
 
 	if mc.FS == nil {
-		return renderGlamour(body, w)
+		return renderGlamour(body, w, mc.Dark)
 	}
 
 	segments := splitAtImages(body)
@@ -111,7 +112,7 @@ func (mc MarkdownContent) renderSegments(width int, placeholdersOnly bool, ctx A
 	for _, seg := range segments {
 		if seg.isImage {
 			if placeholdersOnly {
-				parts = append(parts, renderPlaceholder(w, seg, nil))
+				parts = append(parts, renderPlaceholder(w, seg, nil, mc.Dark))
 				continue
 			}
 
@@ -140,12 +141,12 @@ func (mc MarkdownContent) renderSegments(width int, placeholdersOnly bool, ctx A
 
 			rendered, err := renderImage(mc.FS, mc.ContentDir, seg.imgPath, effectiveCols, pixelW, imgMaxRows)
 			if err != nil {
-				parts = append(parts, renderPlaceholder(w, seg, err))
+				parts = append(parts, renderPlaceholder(w, seg, err, mc.Dark))
 				continue
 			}
 			parts = append(parts, rendered)
 		} else if strings.TrimSpace(seg.text) != "" {
-			out, err := renderGlamour(seg.text, w)
+			out, err := renderGlamour(seg.text, w, mc.Dark)
 			if err != nil {
 				parts = append(parts, seg.text)
 			} else {
@@ -282,7 +283,7 @@ func renderMenuShortcode(ctx AppContext) (string, error) {
 	return sb.String(), nil
 }
 
-func renderPlaceholder(wordWrap int, seg segment, renderErr error) string {
+func renderPlaceholder(wordWrap int, seg segment, renderErr error, dark bool) string {
 	label := seg.alt
 	if label == "" {
 		label = seg.imgPath
@@ -292,16 +293,16 @@ func renderPlaceholder(wordWrap int, seg segment, renderErr error) string {
 		log.Printf("image render fallback for %q: %v", seg.imgPath, renderErr)
 		placeholder += " (image load failed)"
 	}
-	out, err := renderGlamour(placeholder, wordWrap)
+	out, err := renderGlamour(placeholder, wordWrap, dark)
 	if err != nil {
 		return placeholder + "\n"
 	}
 	return out
 }
 
-func renderGlamour(content string, wordWrap int) (string, error) {
+func renderGlamour(content string, wordWrap int, dark bool) (string, error) {
 	r, err := glamour.NewTermRenderer(
-		glamour.WithStyles(AmberStyle()),
+		glamour.WithStyles(amberStyleFor(dark)),
 		glamour.WithWordWrap(wordWrap),
 	)
 	if err != nil {

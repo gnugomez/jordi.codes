@@ -17,16 +17,17 @@ type menuLeftPanel struct {
 }
 
 func (p menuLeftPanel) render(m AppContext, height int) string {
+	t := m.Theme()
 	var rows []string
 	for i, entry := range m.Menu() {
 		if i == p.cursor {
-			rows = append(rows, selectedItemStyle.Render(entry.Label))
+			rows = append(rows, t.SelectedItemStyle.Render(entry.Label))
 		} else {
-			rows = append(rows, normalItemStyle.Render(entry.Label))
+			rows = append(rows, t.NormalItemStyle.Render(entry.Label))
 		}
 	}
-	subtitle := mutedStyle.Render("◇") + subtitleStyle.Render("  "+m.Subtitle()+"  ") + mutedStyle.Render("◇")
-	block := renderHeader() + subtitle + "\n\n" + strings.Join(rows, "\n")
+	subtitle := t.MutedStyle.Render("◇") + t.SubtitleStyle.Render("  "+m.Subtitle()+"  ") + t.MutedStyle.Render("◇")
+	block := renderHeader(t) + subtitle + "\n\n" + strings.Join(rows, "\n")
 	return layout.PlaceCentered(p.width, height, block)
 }
 
@@ -36,13 +37,13 @@ func (p menuWidgetPanel) render(m AppContext, height int) string {
 	return MenuWidgetPanel{Width: p.width, Height: height}.Render(m)
 }
 
-func renderHeader() string {
+func renderHeader(t *Theme) string {
 	var sb strings.Builder
 	for _, line := range asciiCat {
-		sb.WriteString(asciiGlowStyle.Render(line))
+		sb.WriteString(t.AsciiGlowStyle.Render(line))
 		sb.WriteString("\n")
 	}
-	sb.WriteString(titleStyle.Render("Jordi Gómez Hidalgo"))
+	sb.WriteString(t.TitleStyle.Render("Jordi Gómez Hidalgo"))
 	sb.WriteString("\n")
 	return sb.String()
 }

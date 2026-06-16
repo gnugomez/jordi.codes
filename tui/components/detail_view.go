@@ -22,8 +22,8 @@ type DetailView struct {
 // NewDetailView creates a detail view for a content item. The viewport is
 // populated immediately with text-only content; images are rendered in the
 // background and delivered via the returned Cmd.
-func NewDetailView(item cms.ContentItem, width, height int, fsys fs.FS) (*DetailView, tea.Cmd) {
-	mc := MarkdownContent{Body: item.Body, FS: fsys, ContentDir: item.ContentDir}
+func NewDetailView(item cms.ContentItem, width, height int, fsys fs.FS, dark bool) (*DetailView, tea.Cmd) {
+	mc := MarkdownContent{Body: item.Body, FS: fsys, ContentDir: item.ContentDir, Dark: dark}
 	vp := mc.ViewportFast(width, layout.ViewportHeight(height))
 	return &DetailView{item: item, viewport: vp, content: mc}, mc.RenderImagesCmd(width)
 }

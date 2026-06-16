@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"jordi.codes/cms"
 	"jordi.codes/router"
@@ -16,6 +17,7 @@ type Context struct {
 	height int
 
 	listLayout components.ListLayout
+	theme      *components.Theme
 
 	now        time.Time
 	remoteAddr string
@@ -36,6 +38,17 @@ func WithListLayout(l components.ListLayout) Option {
 	return func(ctx *Context) {
 		if l != nil {
 			ctx.listLayout = l
+		}
+	}
+}
+
+// WithRenderer binds the session to a specific lipgloss renderer so that all
+// styles resolve adaptive colors against the connecting client's terminal
+// background instead of a process-global default.
+func WithRenderer(r *lipgloss.Renderer) Option {
+	return func(ctx *Context) {
+		if r != nil {
+			ctx.theme = components.NewTheme(r)
 		}
 	}
 }
@@ -65,6 +78,10 @@ func newContext(site *cms.Site, width, height int, remoteAddr string, opts ...Op
 		if opt != nil {
 			opt(&ctx)
 		}
+	}
+
+	if ctx.theme == nil {
+		ctx.theme = components.NewTheme(nil)
 	}
 
 	return ctx
@@ -122,3 +139,4 @@ func (ctx *Context) Now() time.Time                    { return ctx.now }
 func (ctx *Context) Contribs() map[string]int          { return ctx.contribs }
 func (ctx *Context) RemoteAddr() string                { return ctx.remoteAddr }
 func (ctx *Context) ListLayout() components.ListLayout { return ctx.listLayout }
+func (ctx *Context) Theme() *components.Theme          { return ctx.theme }

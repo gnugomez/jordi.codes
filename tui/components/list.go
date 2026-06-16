@@ -12,7 +12,7 @@ import (
 // ListLayout decouples list navigation and rendering from concrete view styles.
 type ListLayout interface {
 	VisibleItems(bodyHeight int) int
-	Render(items []cms.ContentItem, cursor, offset, width, bodyHeight int) string
+	Render(t *Theme, items []cms.ContentItem, cursor, offset, width, bodyHeight int) string
 }
 
 // StackedBoxListLayout renders content items as a vertical stack of bordered cards.
@@ -38,13 +38,13 @@ func (StackedBoxListLayout) VisibleItems(bodyHeight int) int {
 	return 1
 }
 
-func (l StackedBoxListLayout) Render(items []cms.ContentItem, cursor, offset, width, bodyHeight int) string {
+func (l StackedBoxListLayout) Render(t *Theme, items []cms.ContentItem, cursor, offset, width, bodyHeight int) string {
 	if len(items) == 0 {
-		return lipgloss.NewStyle().
+		return t.NewStyle().
 			PaddingLeft(2).
 			Width(width).
 			Height(bodyHeight).
-			Render("\n" + mutedStyle.Render("   No entries found."))
+			Render("\n" + t.MutedStyle.Render("   No entries found."))
 	}
 
 	visible := l.VisibleItems(bodyHeight)
@@ -58,20 +58,20 @@ func (l StackedBoxListLayout) Render(items []cms.ContentItem, cursor, offset, wi
 		cardWidth = 16
 	}
 
-	normalCardStyle := lipgloss.NewStyle().
+	normalCardStyle := t.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorMuted).
+		BorderForeground(t.Muted).
 		Padding(0, 1).
-		Foreground(colorNormal).
+		Foreground(t.Normal).
 		Width(cardWidth)
 
 	selectedCardStyle := normalCardStyle.
-		BorderForeground(colorPrimary).
-		Foreground(colorPrimary).
+		BorderForeground(t.Primary).
+		Foreground(t.Primary).
 		Bold(true)
 
-	previewStyle := lipgloss.NewStyle().Foreground(colorSubtitle)
-	tagStyle := lipgloss.NewStyle().Foreground(colorClock)
+	previewStyle := t.NewStyle().Foreground(t.Subtitle)
+	tagStyle := t.NewStyle().Foreground(t.Clock)
 
 	cards := make([]string, 0, end-offset)
 	for i := offset; i < end; i++ {
@@ -93,7 +93,7 @@ func (l StackedBoxListLayout) Render(items []cms.ContentItem, cursor, offset, wi
 	}
 
 	stack := strings.Join(cards, "\n")
-	return lipgloss.NewStyle().
+	return t.NewStyle().
 		PaddingLeft(2).
 		Width(width).
 		Height(bodyHeight).
@@ -116,7 +116,7 @@ func (lb ListBody) Render(m AppContext) string {
 		l = StackedBoxListLayout{}
 	}
 	bodyHeight := layout.BodyHeight(m.Height())
-	body := l.Render(lb.Items, lb.Cursor, lb.Offset, m.Width(), bodyHeight)
+	body := l.Render(m.Theme(), lb.Items, lb.Cursor, lb.Offset, m.Width(), bodyHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, head, body)
 }
 

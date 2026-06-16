@@ -14,29 +14,30 @@ type MenuWidgetPanel struct {
 }
 
 func (p MenuWidgetPanel) Render(m AppContext) string {
+	t := m.Theme()
 	width := p.Width
 	height := p.Height
 	const gap = 2
 	innerWidth := width - gap
 
-	greeting := widgetGreeting(innerWidth, m.Now())
-	activity := widgetActivity(innerWidth, m.Contribs(), m.Now())
-	visitor := widgetVisitor(innerWidth, m.RemoteAddr())
+	greeting := widgetGreeting(t, innerWidth, m.Now())
+	activity := widgetActivity(t, innerWidth, m.Contribs(), m.Now())
+	visitor := widgetVisitor(t, innerWidth, m.RemoteAddr())
 
 	stack := strings.Join([]string{greeting, activity, visitor}, "\n")
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, stack)
 }
 
-func widget(content string, outerWidth int) string {
+func widget(t *Theme, content string, outerWidth int) string {
 	inner := outerWidth - 2
 	if inner < 4 {
 		inner = 4
 	}
-	return widgetBorderStyle.Width(inner).Render(content)
+	return t.WidgetBorderStyle.Width(inner).Render(content)
 }
 
-func widgetLabel(s string) string {
-	return widgetTitleStyle.Render(strings.ToUpper(s))
+func widgetLabel(t *Theme, s string) string {
+	return t.WidgetTitleStyle.Render(strings.ToUpper(s))
 }
 
 var catPortrait = []string{
@@ -44,7 +45,7 @@ var catPortrait = []string{
 	` (• ⩊ •)`,
 }
 
-func widgetGreeting(outerWidth int, now time.Time) string {
+func widgetGreeting(t *Theme, outerWidth int, now time.Time) string {
 	hour := now.Hour()
 	var greeting string
 	switch {
@@ -60,22 +61,22 @@ func widgetGreeting(outerWidth int, now time.Time) string {
 		greeting = "still up?"
 	}
 
-	bubble := widgetAccentStyle.Render("hey! "+greeting) + "\n" +
-		subtitleStyle.Render("my name is jordi 🫧") + "\n" +
-		subtitleStyle.Render("and my belief is that art can come from code")
+	bubble := t.WidgetAccentStyle.Render("hey! "+greeting) + "\n" +
+		t.SubtitleStyle.Render("my name is jordi 🫧") + "\n" +
+		t.SubtitleStyle.Render("and my belief is that art can come from code")
 
 	const catMinWidth = 32
 	var row string
 	if outerWidth >= catMinWidth {
 		portrait := strings.Join(catPortrait, "\n")
 		row = lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().PaddingRight(2).Render(portrait),
+			t.NewStyle().PaddingRight(2).Render(portrait),
 			bubble,
 		)
 	} else {
 		row = bubble
 	}
-	return widget(widgetLabel("about me")+"\n\n"+row, outerWidth)
+	return widget(t, widgetLabel(t, "about me")+"\n\n"+row, outerWidth)
 }
 
 var contribColors = []lipgloss.Color{"#1C1917", "#92400E", "#C2410C", "#EA580C", "#F97316"}
@@ -109,7 +110,7 @@ func buildContribGrid(numWeeks int, gridStart time.Time, contribs map[string]int
 	return grid
 }
 
-func buildMonthHeader(numWeeks int, gridStart time.Time, labelWidth int) string {
+func buildMonthHeader(t *Theme, numWeeks int, gridStart time.Time, labelWidth int) string {
 	runes := make([]rune, numWeeks)
 	for i := range runes {
 		runes[i] = ' '
@@ -126,15 +127,15 @@ func buildMonthHeader(numWeeks int, gridStart time.Time, labelWidth int) string 
 			prevMonth = m
 		}
 	}
-	return strings.Repeat(" ", labelWidth) + mutedStyle.Render(string(runes))
+	return strings.Repeat(" ", labelWidth) + t.MutedStyle.Render(string(runes))
 }
 
-func buildGridRows(grid [7][]int, numWeeks int) [7]strings.Builder {
+func buildGridRows(t *Theme, grid [7][]int, numWeeks int) [7]strings.Builder {
 	block := "█"
 	var rows [7]strings.Builder
 	for row := 0; row < 7; row++ {
 		for w := 0; w < numWeeks; w++ {
-			style := lipgloss.NewStyle().Foreground(contribColors[grid[row][w]])
+			style := t.NewStyle().Foreground(contribColors[grid[row][w]])
 			rows[row].WriteString(style.Render(block))
 		}
 	}
@@ -151,7 +152,7 @@ func countActiveDays(contribs map[string]int) int {
 	return n
 }
 
-func activityContent(outerWidth int, contribs map[string]int, now time.Time) string {
+func activityContent(t *Theme, outerWidth int, contribs map[string]int, now time.Time) string {
 	inner := outerWidth - 2
 	if inner < 10 {
 		inner = 10
@@ -171,15 +172,15 @@ func activityContent(outerWidth int, contribs map[string]int, now time.Time) str
 	gridStart := gridEnd.AddDate(0, 0, -(numWeeks*7 - 1))
 
 	grid := buildContribGrid(numWeeks, gridStart, contribs)
-	monthHeader := buildMonthHeader(numWeeks, gridStart, labelWidth)
-	rows := buildGridRows(grid, numWeeks)
+	monthHeader := buildMonthHeader(t, numWeeks, gridStart, labelWidth)
+	rows := buildGridRows(t, grid, numWeeks)
 
 	dayLabels := [7]string{"", "Mo", "", "We", "", "Fr", ""}
 	var sb strings.Builder
 	sb.WriteString(monthHeader + "\n")
 	for row := 0; row < 7; row++ {
 		if dayLabels[row] != "" {
-			sb.WriteString(mutedStyle.Render(dayLabels[row]) + " ")
+			sb.WriteString(t.MutedStyle.Render(dayLabels[row]) + " ")
 		} else {
 			sb.WriteString("   ")
 		}
@@ -188,25 +189,25 @@ func activityContent(outerWidth int, contribs map[string]int, now time.Time) str
 
 	var totalStr string
 	if len(contribs) > 0 {
-		totalStr = widgetAccentStyle.Render(fmt.Sprintf("%d", countActiveDays(contribs))) + subtitleStyle.Render(" active days in the last year")
+		totalStr = t.WidgetAccentStyle.Render(fmt.Sprintf("%d", countActiveDays(contribs))) + t.SubtitleStyle.Render(" active days in the last year")
 	} else {
-		totalStr = mutedStyle.Render("loading…")
+		totalStr = t.MutedStyle.Render("loading…")
 	}
 
-	return widgetLabel("github activity") + "\n\n" +
-		lipgloss.NewStyle().PaddingLeft((inner-labelWidth-numWeeks*cellWidth)/2).Render(strings.TrimRight(sb.String(), "\n")) + "\n\n" +
-		lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Render(totalStr)
+	return widgetLabel(t, "github activity") + "\n\n" +
+		t.NewStyle().PaddingLeft((inner-labelWidth-numWeeks*cellWidth)/2).Render(strings.TrimRight(sb.String(), "\n")) + "\n\n" +
+		t.NewStyle().Width(inner).Align(lipgloss.Center).Render(totalStr)
 }
 
-func widgetActivity(outerWidth int, contribs map[string]int, now time.Time) string {
-	return widget(activityContent(outerWidth, contribs, now), outerWidth)
+func widgetActivity(t *Theme, outerWidth int, contribs map[string]int, now time.Time) string {
+	return widget(t, activityContent(t, outerWidth, contribs, now), outerWidth)
 }
 
-func widgetVisitor(outerWidth int, remoteAddr string) string {
+func widgetVisitor(t *Theme, outerWidth int, remoteAddr string) string {
 	if remoteAddr == "" {
 		remoteAddr = "unknown"
 	}
-	face := mutedStyle.Render("(✿◠‿◠)")
-	line := face + "  " + subtitleStyle.Render("connected from ") + widgetAccentStyle.Render(remoteAddr)
-	return widget(widgetLabel("visitor")+"\n\n"+line, outerWidth)
+	face := t.MutedStyle.Render("(✿◠‿◠)")
+	line := face + "  " + t.SubtitleStyle.Render("connected from ") + t.WidgetAccentStyle.Render(remoteAddr)
+	return widget(t, widgetLabel(t, "visitor")+"\n\n"+line, outerWidth)
 }

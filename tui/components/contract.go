@@ -20,6 +20,7 @@ type AppContext interface {
 	Contribs() map[string]int
 	RemoteAddr() string
 	ListLayout() ListLayout
+	Theme() *Theme
 }
 
 // Renderer is the contract for any component that can draw itself.

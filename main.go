@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,26 +48,7 @@ func main() {
 		wish.WithHostKeyPath(keyPath),
 		wish.WithMiddleware(
 			// Render the bubbletea TUI for each SSH session.
-			bm.Middleware(func(s cssh.Session) (tea.Model, []tea.ProgramOption) {
-				pty, _, active := s.Pty()
-				if !active {
-					return nil, nil
-				}
-				addr := s.RemoteAddr().String()
-				if h, _, err := net.SplitHostPort(addr); err == nil {
-					addr = h
-				}
-
-				// Resolve the SSH username to a route path.
-				// e.g. "about" → "/about", "projects.jordi-codes" → "/projects/jordi-codes"
-				// If the username does not match a known route the TUI starts at the menu.
-				initialPath := router.UsernameToPath(s.User())
-
-				m := tui.NewModel(site, pty.Window.Width, pty.Window.Height, addr,
-					tui.WithInitialPath(initialPath),
-				)
-				return m, []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
-			}),
+			bm.Middleware(teaHandler(site)),
 			// Reject connections that do not have an active PTY.
 			activeterm.Middleware(),
 			// Structured request logging via charmbracelet/log.
@@ -115,4 +97,54 @@ func main() {
 	if err := httpSrv.Shutdown(ctx); err != nil {
 		log.Error("HTTP graceful shutdown failed", "error", err)
 	}
+}
+
+// teaHandler builds the bubbletea Handler invoked for each SSH session. It
+// resolves the requested route, builds a per-session renderer that reflects the
+// connecting client's terminal background, and returns the configured TUI model.
+func teaHandler(site *cms.Site) func(cssh.Session) (tea.Model, []tea.ProgramOption) {
+	return func(s cssh.Session) (tea.Model, []tea.ProgramOption) {
+		pty, _, active := s.Pty()
+		if !active {
+			return nil, nil
+		}
+
+		// Build a renderer bound to this session. bm.MakeRenderer queries the
+		// client's terminal (OSC 11) for its background color, so adaptive
+		// colors resolve per-connection. The server has no controlling TTY in
+		// Docker, which is why a process-global renderer cannot detect this.
+		r := sessionRenderer(s)
+
+		addr := s.RemoteAddr().String()
+		if h, _, err := net.SplitHostPort(addr); err == nil {
+			addr = h
+		}
+
+		// Resolve the SSH username to a route path.
+		// e.g. "about" → "/about", "projects.jordi-codes" → "/projects/jordi-codes"
+		// If the username does not match a known route the TUI starts at the menu.
+		initialPath := router.UsernameToPath(s.User())
+
+		m := tui.NewModel(site, pty.Window.Width, pty.Window.Height, addr,
+			tui.WithInitialPath(initialPath),
+			tui.WithRenderer(r),
+		)
+		return m, []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
+	}
+}
+
+// sessionRenderer returns a lipgloss renderer for the given SSH session with
+// the client's detected background. Color output is forced to TrueColor so
+// styles always render fully. An explicit JORDI_THEME ("dark"/"light")
+// overrides the auto-detected background.
+func sessionRenderer(s cssh.Session) *lipgloss.Renderer {
+	r := bm.MakeRenderer(s)
+	r.SetColorProfile(termenv.TrueColor)
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("JORDI_THEME"))) {
+	case "dark":
+		r.SetHasDarkBackground(true)
+	case "light":
+		r.SetHasDarkBackground(false)
+	}
+	return r
 }

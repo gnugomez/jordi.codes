@@ -40,8 +40,11 @@ type AppContext interface {
     Contribs() map[string]int
     RemoteAddr() string
     ListLayout() ListLayout
+    Theme() *Theme
 }
 ```
+
+Theming is **per-session**, not global. Each SSH session builds a `*lipgloss.Renderer` (via `bubbletea.MakeRenderer(sess)`) that detects the client terminal background. `tui.WithRenderer(r)` constructs a `*components.Theme` from it, exposed through `AppContext.Theme()`. Components must read styles/colors from `m.Theme()` (e.g. `t.MutedStyle`, `t.Primary`, `t.NewStyle()`) rather than package-level style vars. There is **no** global style state and no `JORDI_THEME`-style hardcoding required for correctness.
 
 ### `Renderer`
 A value type (usually a struct) that draws itself given an `AppContext`.
@@ -104,7 +107,7 @@ Implementations:
 
 ## Styling
 
-  All colors and lipgloss styles live in `tui/components/theme.go`. Use the exported/unexported variables from that file rather than defining styles inline. The amber color palette is used throughout. Markdown is rendered with `glamour` using `AmberStyle()`.
+  All colors and lipgloss styles are defined in `tui/components/theme.go`. The hex palette constants and `AdaptiveColor` vars are package-level, but **styles are built per-session** by `NewTheme(r *lipgloss.Renderer)` and accessed via `m.Theme()` inside components — never from package-level style vars. The amber color palette is used throughout. Markdown is rendered with `glamour` using the session's palette via `t.Markdown()` (`amberStyleFor(dark)`); pass `Dark` through `MarkdownContent`.
 
 ---
 

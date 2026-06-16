@@ -1,9 +1,6 @@
 package components
 
 import (
-	"os"
-	"strings"
-
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -34,63 +31,89 @@ const (
 )
 
 var (
-	colorPrimary  = themedColor(lightHexPrimary, hexPrimary)
-	colorAccent   = themedColor(lightHexAccent, hexAccent)
-	colorMuted    = themedColor(lightHexMuted, hexMuted)
-	colorNormal   = themedColor(lightHexNormal, hexNormal)
-	colorClock    = themedColor(lightHexClock, hexClock)
-	colorSubtitle = themedColor(lightHexSubtitle, hexSubtitle)
-	colorError    = themedColor(lightHexError, hexError)
+	colorPrimary  = lipgloss.AdaptiveColor{Light: lightHexPrimary, Dark: hexPrimary}
+	colorAccent   = lipgloss.AdaptiveColor{Light: lightHexAccent, Dark: hexAccent}
+	colorMuted    = lipgloss.AdaptiveColor{Light: lightHexMuted, Dark: hexMuted}
+	colorNormal   = lipgloss.AdaptiveColor{Light: lightHexNormal, Dark: hexNormal}
+	colorClock    = lipgloss.AdaptiveColor{Light: lightHexClock, Dark: hexClock}
+	colorSubtitle = lipgloss.AdaptiveColor{Light: lightHexSubtitle, Dark: hexSubtitle}
+	colorError    = lipgloss.AdaptiveColor{Light: lightHexError, Dark: hexError}
 )
 
-var (
-	titleStyle = lipgloss.NewStyle().
-			Foreground(colorPrimary).
-			Bold(true)
+// Theme holds all per-session lipgloss styles and colors. Every style is bound
+// to a session-specific *lipgloss.Renderer so adaptive colors resolve against
+// the connecting client's terminal background — never a process-global one.
+type Theme struct {
+	r    *lipgloss.Renderer
+	dark bool
 
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(colorSubtitle)
+	// Raw colors, for building inline styles via NewStyle.
+	Primary  lipgloss.TerminalColor
+	Accent   lipgloss.TerminalColor
+	Muted    lipgloss.TerminalColor
+	Normal   lipgloss.TerminalColor
+	Clock    lipgloss.TerminalColor
+	Subtitle lipgloss.TerminalColor
+	Error    lipgloss.TerminalColor
 
-	headerStyle = lipgloss.NewStyle().
-			Foreground(colorPrimary).
-			Bold(true)
+	// Prebuilt styles.
+	TitleStyle        lipgloss.Style
+	SubtitleStyle     lipgloss.Style
+	HeaderStyle       lipgloss.Style
+	SelectedItemStyle lipgloss.Style
+	NormalItemStyle   lipgloss.Style
+	MutedStyle        lipgloss.Style
+	ClockStyle        lipgloss.Style
+	HelpStyle         lipgloss.Style
+	ErrorStyle        lipgloss.Style
+	AsciiGlowStyle    lipgloss.Style
+	WidgetBorderStyle lipgloss.Style
+	WidgetTitleStyle  lipgloss.Style
+	WidgetAccentStyle lipgloss.Style
+}
 
-	selectedItemStyle = lipgloss.NewStyle().
-				Foreground(colorPrimary).
-				Bold(true)
+// NewTheme builds a Theme bound to r. If r is nil the lipgloss default renderer
+// is used (useful for tests). The dark/light decision is taken from the
+// renderer's detected background at construction time.
+func NewTheme(r *lipgloss.Renderer) *Theme {
+	if r == nil {
+		r = lipgloss.DefaultRenderer()
+	}
+	t := &Theme{
+		r:        r,
+		dark:     r.HasDarkBackground(),
+		Primary:  colorPrimary,
+		Accent:   colorAccent,
+		Muted:    colorMuted,
+		Normal:   colorNormal,
+		Clock:    colorClock,
+		Subtitle: colorSubtitle,
+		Error:    colorError,
+	}
+	t.TitleStyle = r.NewStyle().Foreground(colorPrimary).Bold(true)
+	t.SubtitleStyle = r.NewStyle().Foreground(colorSubtitle)
+	t.HeaderStyle = r.NewStyle().Foreground(colorPrimary).Bold(true)
+	t.SelectedItemStyle = r.NewStyle().Foreground(colorPrimary).Bold(true)
+	t.NormalItemStyle = r.NewStyle().Foreground(colorNormal)
+	t.MutedStyle = r.NewStyle().Foreground(colorMuted)
+	t.ClockStyle = r.NewStyle().Foreground(colorClock)
+	t.HelpStyle = r.NewStyle().Foreground(colorMuted)
+	t.ErrorStyle = r.NewStyle().Foreground(colorError).Bold(true)
+	t.AsciiGlowStyle = r.NewStyle().Foreground(colorAccent).Bold(true)
+	t.WidgetBorderStyle = r.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colorMuted)
+	t.WidgetTitleStyle = r.NewStyle().Foreground(colorMuted).Bold(false)
+	t.WidgetAccentStyle = r.NewStyle().Foreground(colorPrimary).Bold(true)
+	return t
+}
 
-	normalItemStyle = lipgloss.NewStyle().
-			Foreground(colorNormal)
+// NewStyle returns a fresh style bound to the session renderer.
+func (t *Theme) NewStyle() lipgloss.Style { return t.r.NewStyle() }
 
-	mutedStyle = lipgloss.NewStyle().
-			Foreground(colorMuted)
+// Dark reports whether the session's terminal has a dark background.
+func (t *Theme) Dark() bool { return t.dark }
 
-	clockStyle = lipgloss.NewStyle().
-			Foreground(colorClock)
-
-	helpStyle = lipgloss.NewStyle().
-			Foreground(colorMuted)
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(colorError).
-			Bold(true)
-
-	asciiGlowStyle = lipgloss.NewStyle().
-			Foreground(colorAccent).
-			Bold(true)
-
-	widgetBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(colorMuted)
-
-	widgetTitleStyle = lipgloss.NewStyle().
-				Foreground(colorMuted).
-				Bold(false)
-
-	widgetAccentStyle = lipgloss.NewStyle().
-				Foreground(colorPrimary).
-				Bold(true)
-)
+// Markdown returns the glamour style config matching this session's background.
+func (t *Theme) Markdown() ansi.StyleConfig { return amberStyleFor(t.dark) }
 
 func sp(s string) *string { return &s }
 func bp(b bool) *bool     { return &b }
@@ -225,45 +248,10 @@ func buildAmberStyle(p markdownPalette) ansi.StyleConfig {
 	}
 }
 
-func init() {
-	lipgloss.SetHasDarkBackground(themeIsDark())
-}
-
-func forcedDarkMode() (bool, bool) {
-	theme := strings.TrimSpace(os.Getenv("TUI_THEME"))
-
-	switch strings.ToLower(theme) {
-	case "dark":
-		return true, true
-	case "light":
-		return false, true
-	default:
-		return false, false
-	}
-}
-
-func themeIsDark() bool {
-	if forcedDark, ok := forcedDarkMode(); ok {
-		return forcedDark
-	}
-
-	// In hosted SSH mode, background auto-detection is frequently unreliable.
-	// Default to the dark palette unless explicitly overridden.
-	return true
-}
-
-func themedColor(light, dark string) lipgloss.Color {
-	if themeIsDark() {
-		return lipgloss.Color(dark)
-	}
-
-	return lipgloss.Color(light)
-}
-
-func AmberStyle() ansi.StyleConfig {
-	if themeIsDark() {
+// amberStyleFor returns the markdown style config for the given background.
+func amberStyleFor(dark bool) ansi.StyleConfig {
+	if dark {
 		return buildAmberStyle(darkMarkdownPalette)
 	}
-
 	return buildAmberStyle(lightMarkdownPalette)
 }
